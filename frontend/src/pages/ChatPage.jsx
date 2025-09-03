@@ -43,3 +43,13 @@ function ChatPage(){
   );
 }
 export default ChatPage;
+
+import { useEffect } from "react";
+import { onQuickPrompt } from "../lib/bus";
+
+function useQuickPrompt(setText){
+  useEffect(()=>{
+    const off = onQuickPrompt((t)=> setText(String(t||"")));
+    return off;
+  },[setText]);
+}
