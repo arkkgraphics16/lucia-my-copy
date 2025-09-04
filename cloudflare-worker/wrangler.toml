@@ -1,13 +1,9 @@
-name = "lucia-ai-proxy"
+name = "lucia-secure"
 main = "src/worker.js"
 compatibility_date = "2024-11-01"
-usage_model = "bundled"
 
-# When you start using AI Gateway, set GATEWAY_URL and leave DEEPSEEK_API_URL blank
+# Default dev vars (overridden in dashboard)
 [vars]
 DUMMY_MODE = "true"
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 DEEPSEEK_MODEL = "deepseek-chat"
-
-# You will provide secrets via `wrangler secret put`:
-# - DEEPSEEK_API_KEY
