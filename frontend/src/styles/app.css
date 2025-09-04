@@ -320,3 +320,5 @@ html, body, #root { background:#0b1621 !important; color:#e6f1ff !important; hei
   overflow-y: auto;          /* scroll after 10 lines */
   resize: none;              /* optional: prevent manual oversize */
 }
+
+.sidebar { border-right: none !important; box-shadow: none !important; }
