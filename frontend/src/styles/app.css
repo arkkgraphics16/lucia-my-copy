@@ -161,3 +161,36 @@ html, body, #root {
   height: 52px;
   border-radius: 999px;
 }
+
+/* ===== Dark Enforcer (covers in-app browsers like Messenger) ===== */
+:root { color-scheme: dark; }
+html, body, #root,
+.app-shell, .layout, .main,
+.chat, .chat-page, .chat-area, .chat-scroll {
+  background: #0b1621 !important;   /* force dark */
+  color: #e6f1ff;
+}
+
+/* keep page height solid on mobile toolbars */
+@supports (height: 100dvh) {
+  .main { min-height: 100dvh; }
+}
+
+/* Composer stays docked */
+.composer, .composer-bar, .chat-composer, form.chat-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 60;
+  background: rgba(9,19,33,.92);
+  backdrop-filter: saturate(120%) blur(6px);
+  padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.composer-row, .chat-input-row { display:flex; align-items:center; gap:10px; }
+.composer-row input[type="text"], .composer-row textarea,
+.chat-input-row input[type="text"], .chat-input-row textarea { flex:1 1 auto; min-width:0; }
+.send-btn, .chat-send, .composer-send { flex:0 0 auto; width:52px; height:52px; border-radius:999px; }
+
+/* Optional: darker chat canvas so bubbles pop */
+.chat-canvas, .chat-body { background: transparent !important; }
