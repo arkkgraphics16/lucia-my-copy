@@ -292,3 +292,26 @@ html, body, #root { background:#0b1621 !important; color:#e6f1ff !important; hei
 @media (max-width:768px){
   .sidebar{ padding-bottom: calc(var(--composer-h) + var(--composer-pad)); }
 }
+
+/* ---------------------------
+   ONLY TWO OVERRIDES BELOW
+   1) Remove extra bottom gap
+   2) Cap textarea to 10 lines
+----------------------------*/
+
+/* 1) Remove extra gap below chat & footer */
+.main { padding-bottom: 0 !important; }
+.sidebar { padding-bottom: var(--composer-pad) !important; } /* keep safe-area only */
+
+/* 2) Text input: auto-grow up to 10 lines, then scroll */
+:root{
+  --textarea-max-lines: 10;
+  --textarea-line-height: 1.4;
+}
+.textarea,
+.composer textarea,
+.chat-input-row textarea {
+  line-height: var(--textarea-line-height);
+  max-height: calc(1em * var(--textarea-line-height) * var(--textarea-max-lines) + 24px) !important; /* ~10 lines + padding */
+  overflow-y: auto;
+}
