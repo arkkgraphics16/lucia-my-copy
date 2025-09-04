@@ -17,12 +17,11 @@
   color-scheme: dark;
 }
 
-/* YOUR ORIGINAL CSS BELOW - UNCHANGED */
 *{box-sizing:border-box} html,body,#root{height:100%}
 body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)}
 a{color:var(--accent);text-decoration:none}
 .app-shell{display:grid;grid-template-rows:auto 1fr;min-height:100%}
-.header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--surface),var(--surface-2));position:sticky;top:0;z-index:50}
+.header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:linear-gradient(180deg,var(--surface),var(--surface-2));position:sticky;top:0;z-index:50}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.8px}
 .brand img{width:28px;height:28px}
 .brand-title{display:flex;align-items:center;gap:6px}
@@ -34,7 +33,7 @@ a{color:var(--accent);text-decoration:none}
 .btn.ghost{background:transparent}
 .btn.core{background:var(--core);color:#fff;border-color:transparent}
 .layout{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:calc(100vh - 60px)}
-.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:14px;display:flex;flex-direction:column;gap:10px}
+.sidebar{background:var(--surface);border-right:0;padding:14px;display:flex;flex-direction:column;gap:10px}
 .sidebar h4{margin:8px 0 4px;color:var(--muted);font-weight:600}
 .chip{display:inline-block;background:var(--surface-2);padding:6px 10px;border-radius:999px;border:1px solid var(--border);margin:4px 6px 0 0;cursor:pointer}
 .chip:hover{border-color:var(--primary);color:var(--primary)}
@@ -321,4 +320,3 @@ html, body, #root { background:#0b1621 !important; color:#e6f1ff !important; hei
   resize: none;              /* optional: prevent manual oversize */
 }
 
-.sidebar { border-right: none !important; box-shadow: none !important; }

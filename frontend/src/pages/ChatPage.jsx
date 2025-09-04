@@ -5,16 +5,19 @@ import { onQuickPrompt } from "../lib/bus";
 const GREETING =
   "L.U.C.I.A. — Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they’re hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions.";
 
-
+/* -------------------
+   Composer Component
+-------------------- */
 function Composer({ value, setValue, onSend, onCancel, busy }) {
   const textareaRef = useRef(null);
 
+  // auto-grow up to 10 lines
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
 
     const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
-    const pad = 24; // vertical padding from CSS
+    const pad = 24; // match textarea vertical padding in CSS
     const maxHeight = Math.round(lineHeight * 10 + pad);
 
     const resize = () => {
@@ -37,20 +40,7 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
         rows={1}
       />
       <div className="controls">
-        <button
-          className="action-btn send"
-          onClick={onSend}
-          disabled={busy}
-          aria-label="Send"
-          type="button"
-        >
-          {/* Paper plane icon (keeps your circular button UI) */}
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M22 2L11 13"></path>
-            <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
-          </svg>
-        </button>
-        {busy && (
+        {busy ? (
           <button
             className="action-btn cancel"
             onClick={onCancel}
@@ -63,13 +53,29 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
+        ) : (
+          <button
+            className="action-btn send"
+            onClick={onSend}
+            aria-label="Send"
+            type="button"
+            disabled={!value.trim()}
+          >
+            {/* Paper plane icon */}
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M22 2L11 13"></path>
+              <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+            </svg>
+          </button>
         )}
       </div>
     </div>
   );
 }
 
-
+/* -------------------
+   Chat Page Component
+-------------------- */
 function ChatPage() {
   const [msgs, setMsgs] = useState([
     { id: "m0", role: "assistant", content: GREETING },
@@ -152,7 +158,9 @@ function ChatPage() {
 
 export default ChatPage;
 
-
+/* -------------------
+   Hook for quick prompt
+-------------------- */
 function useQuickPrompt(setText) {
   useEffect(() => {
     const off = onQuickPrompt((t) => setText(String(t || "")));
