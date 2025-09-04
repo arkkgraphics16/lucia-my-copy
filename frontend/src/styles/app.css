@@ -194,3 +194,53 @@ html, body, #root,
 
 /* Optional: darker chat canvas so bubbles pop */
 .chat-canvas, .chat-body { background: transparent !important; }
+
+/* ===== FORCE DARK EVERYWHERE (covers in-app browsers) ===== */
+:root { color-scheme: dark; }
+html, body, #root { background:#0b1621 !important; color:#e6f1ff !important; height:100%; }
+.app-shell, .layout, .main,
+.chat, .chat-page, .chat-area, .chat-scroll, .chat-body, .chat-canvas {
+  background: #0b1621 !important;
+}
+
+/* Make main fill full viewport height on mobile toolbars */
+@supports (height: 100dvh) { .main { min-height: 100dvh; } }
+
+/* ===== COMPOSER: pinned bottom, never overflow ===== */
+.composer, .composer-bar, .chat-composer, form.chat-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 60; /* below sidebar overlay when open (see rule below) */
+  background: rgba(9,19,33,.92);
+  backdrop-filter: saturate(120%) blur(6px);
+  padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.composer-row, .chat-input-row { display:flex; align-items:center; gap:10px; }
+.composer-row input[type="text"], .composer-row textarea,
+.chat-input-row input[type="text"], .chat-input-row textarea { flex:1 1 auto; min-width:0; }
+.send-btn, .chat-send, .composer-send { flex:0 0 auto; width:52px; height:52px; border-radius:999px; }
+
+/* ===== SIDEBAR OVERLAY & STACKING ON MOBILE ===== */
+@media (max-width: 768px) {
+  /* Sidebar becomes full overlay above everything */
+  .sidebar {
+    position: fixed !important;
+    left: 0; right: 0; top: 60px; bottom: 0;   /* below header */
+    width: 100%;
+    max-width: none;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    background: var(--surface, #0f1b2a) !important;
+    z-index: 100; /* higher than composer (60) */
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* When sidebar is open, prevent background scroll and put composer behind overlay */
+  .sidebar.open ~ .main { overflow: hidden; }
+  .sidebar.open ~ .main .composer,
+  .sidebar.open ~ .main .composer-bar,
+  .sidebar.open ~ .main .chat-composer,
+  .sidebar.open ~ .main form.chat-composer { z-index: 10; }
+}
