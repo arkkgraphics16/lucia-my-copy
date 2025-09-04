@@ -180,3 +180,51 @@ a{color:var(--accent);text-decoration:none}
 @supports (height:100dvh){
   .main{min-height:100dvh}
 }
+
+/* === HOTFIX 2025-09-04 ===
+   Fix mobile: main stuck in 2nd grid column & sidebar overlay
+   Also nuke any leftover seams under header/sidebar
+*/
+.header { border-bottom: none !important; }
+
+/* Desktop/tablet: keep sidebar sticky + internal scroll */
+.sidebar {
+  position: sticky;
+  top: var(--header-h, 60px);
+  height: calc(100vh - var(--header-h, 60px));
+  overflow: hidden;
+}
+
+/* Mobile overrides must win the cascade */
+@media (max-width: 768px) {
+  /* Force 1 column so main isn’t trapped in a hidden 2nd column */
+  .layout { grid-template-columns: 1fr !important; }
+
+  /* Sidebar as full overlay, hidden by default */
+  .sidebar {
+    position: fixed !important;
+    inset: var(--header-h, 60px) 0 0 0;
+    width: 100%;
+    max-width: none;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    background: var(--surface) !important;
+    z-index: 100;          /* above composer (60) */
+    height: auto;          /* overlay fills inset */
+    overflow: hidden;
+    border-right: none;    /* remove faint seam */
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* Main must span the full grid (no phantom 2nd column) */
+  .main { grid-column: 1 / -1 !important; }
+
+  /* Sidebar content area should scroll internally */
+  .sidebar-content { height: calc(100vh - var(--header-h, 60px)); }
+  .sidebar-top { overflow: auto; }
+  .sidebar-bottom { padding-bottom: 16px; }
+
+  /* When overlay is open, put composer behind it and lock background scroll */
+  .sidebar.open ~ .main { overflow: hidden; }
+  .sidebar.open ~ .main .composer { z-index: 10; }
+}
