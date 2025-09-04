@@ -1,7 +1,7 @@
 # Frontend Auth + Upload Test
 
 1) Configure frontend/.env
-   VITE_API_BASE_URL=http://localhost:8080
+   VITE_API_BASE_URL=lucia-secure.arkkgraphics.workers.dev
    VITE_FIREBASE_API_KEY=...
    VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
    VITE_FIREBASE_PROJECT_ID=your-project-id
