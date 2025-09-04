@@ -113,3 +113,51 @@ a{color:var(--accent);text-decoration:none}
   display:flex; align-items:center; gap:8px;
 }
 .user-menu-item.danger svg{ width:18px; height:18px; stroke:#e63946; }
+
+/* === Global dark + safe area fixes === */
+:root { color-scheme: dark; }
+html, body, #root {
+  background: #0b1621;
+  color: var(--text, #e6f1ff);
+  height: 100%;
+}
+
+@supports (height: 100dvh) {
+  .main { min-height: 100dvh; }
+}
+
+/* === Composer pinned to bottom === */
+.composer, .composer-bar, .chat-composer, form.chat-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 60;
+  background: rgba(9, 19, 33, 0.9);
+  backdrop-filter: saturate(120%) blur(6px);
+  padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+
+.composer-row, .chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.composer-row input[type="text"],
+.composer-row textarea,
+.chat-input-row input[type="text"],
+.chat-input-row textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.send-btn, .chat-send, .composer-send {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+}
