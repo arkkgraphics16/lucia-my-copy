@@ -302,16 +302,21 @@ html, body, #root { background:#0b1621 !important; color:#e6f1ff !important; hei
 /* 1) Remove extra gap below chat & footer */
 .main { padding-bottom: 0 !important; }
 .sidebar { padding-bottom: var(--composer-pad) !important; } /* keep safe-area only */
+.sidebar { border-right: none !important; box-shadow: none !important; }
 
-/* 2) Text input: auto-grow up to 10 lines, then scroll */
+/* === Textarea: grow to 10 lines max === */
 :root{
+  --textarea-min-lines: 3;
   --textarea-max-lines: 10;
-  --textarea-line-height: 1.4;
+  --textarea-line-height: 1.4; /* match your font size */
 }
 .textarea,
 .composer textarea,
-.chat-input-row textarea {
+.chat-input-row textarea{
   line-height: var(--textarea-line-height);
-  max-height: calc(1em * var(--textarea-line-height) * var(--textarea-max-lines) + 24px) !important; /* ~10 lines + padding */
-  overflow-y: auto;
+  /* initial height ~3 lines; can grow via JS below */
+  min-height: calc(1em * var(--textarea-line-height) * var(--textarea-min-lines) + 24px) !important;
+  max-height: calc(1em * var(--textarea-line-height) * var(--textarea-max-lines) + 24px) !important;
+  overflow-y: auto;          /* scroll after 10 lines */
+  resize: none;              /* optional: prevent manual oversize */
 }
