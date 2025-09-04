@@ -264,3 +264,31 @@ html, body, #root { background:#0b1621 !important; color:#e6f1ff !important; hei
   .sidebar.open ~ .main .chat-composer,
   .sidebar.open ~ .main form.chat-composer { z-index: 10; }
 }
+
+/* === ALIGN SIDEBAR FOOTER WITH COMPOSER BOTTOM (added) === */
+:root{
+  --header-h: 60px;
+  --composer-h: 68px;
+  --composer-pad: max(12px, env(safe-area-inset-bottom));
+}
+.composer{
+  min-height: var(--composer-h);
+  padding-bottom: var(--composer-pad);
+}
+.sidebar{
+  position: sticky;
+  top: var(--header-h);
+  height: calc(100vh - var(--header-h));
+  padding-bottom: calc(var(--composer-h) + var(--composer-pad));
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-content, .sidebar-top, .sidebar-body{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.sidebar-bottom{ margin-top: auto; }
+@media (max-width:768px){
+  .sidebar{ padding-bottom: calc(var(--composer-h) + var(--composer-pad)); }
+}
