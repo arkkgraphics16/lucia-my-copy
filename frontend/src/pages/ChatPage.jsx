@@ -5,27 +5,26 @@ import { onQuickPrompt } from "../lib/bus";
 const GREETING =
   "L.U.C.I.A. — Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they’re hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions.";
 
+// Change this to your Worker URL
+const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat";
+
 /* -------------------
    Composer Component
 -------------------- */
 function Composer({ value, setValue, onSend, onCancel, busy }) {
   const textareaRef = useRef(null);
 
-  // auto-grow up to 10 lines
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-
     const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
-    const pad = 24; // match textarea vertical padding in CSS
+    const pad = 24;
     const maxHeight = Math.round(lineHeight * 10 + pad);
-
     const resize = () => {
       el.style.height = "auto";
       el.style.height = Math.min(el.scrollHeight, maxHeight) + "px";
       el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
     };
-
     resize();
   }, [value]);
 
@@ -47,10 +46,9 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
             aria-label="Cancel"
             type="button"
           >
-            {/* X icon */}
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         ) : (
@@ -61,10 +59,9 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
             type="button"
             disabled={!value.trim()}
           >
-            {/* Paper plane icon */}
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M22 2L11 13"></path>
-              <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 2L11 13" />
+              <path d="M22 2l-7 20-4-9-9-4 20-7z" />
             </svg>
           </button>
         )}
@@ -87,42 +84,52 @@ function ChatPage() {
   async function send() {
     const content = text.trim();
     if (!content) return;
+
     setText("");
     setBusy(true);
-    setMsgs((m) => [
-      ...m,
-      { id: `u${Date.now()}`, role: "user", content },
-      { id: `a${Date.now()}`, role: "assistant", content: "…typing" },
-    ]);
+
+    const userMsg = { id: `u${Date.now()}`, role: "user", content };
+    const typingMsg = { id: `a${Date.now()}`, role: "assistant", content: "…typing" };
+    setMsgs((m) => [...m, userMsg, typingMsg]);
 
     ctrl.current = new AbortController();
     const signal = ctrl.current.signal;
+
     try {
-      await new Promise((res, rej) => {
-        const t = setTimeout(() => res(), 600);
-        signal.addEventListener?.("abort", () => {
-          clearTimeout(t);
-          rej(new Error("aborted"));
-        });
+      // Build full messages[] for worker
+      const payload = {
+        messages: [
+          ...msgs
+            .filter((x) => x.role === "user" || x.role === "assistant")
+            .map((x) => ({ role: x.role, content: x.content })),
+          { role: "user", content },
+        ],
+      };
+
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal,
       });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
       setMsgs((m) =>
-        m
-          .slice(0, -1)
-          .concat({
-            id: `a${Date.now()}`,
-            role: "assistant",
-            content: `Echo: ${content}`,
-          })
+        m.slice(0, -1).concat({
+          id: `a${Date.now()}`,
+          role: "assistant",
+          content: data.reply || "(no reply)",
+        })
       );
-    } catch {
+    } catch (err) {
       setMsgs((m) =>
-        m
-          .slice(0, -1)
-          .concat({
-            id: `a${Date.now()}`,
-            role: "assistant",
-            content: "(canceled)",
-          })
+        m.slice(0, -1).concat({
+          id: `a${Date.now()}`,
+          role: "assistant",
+          content: `(error: ${err.message})`,
+        })
       );
     } finally {
       setBusy(false);
