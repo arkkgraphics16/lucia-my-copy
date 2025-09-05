@@ -1,9 +1,10 @@
 name = "lucia-secure"
-main = "cloudflare-worker/src/worker.mjs"
+main = "src/worker.mjs"
 compatibility_date = "2024-11-20"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 compatibility_flags = ["nodejs_compat"]
-node_compat = false
+
 
 [vars]
 # Optional defaults (you can override in dashboard)
