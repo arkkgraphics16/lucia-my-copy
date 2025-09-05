@@ -1,5 +1,5 @@
 name = "lucia-secure"
-main = "src/worker.mjs"
+main = "lucia-secure/cloudflare-worker/src/worker.mjs"
 compatibility_date = "2024-11-20"
 workers_dev = true
 node_compat = false
