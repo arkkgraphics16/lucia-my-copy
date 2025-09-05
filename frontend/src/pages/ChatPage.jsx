@@ -81,60 +81,66 @@ function ChatPage() {
   const [busy, setBusy] = useState(false);
   const ctrl = useRef(null);
 
-  async function send() {
-    const content = text.trim();
-    if (!content) return;
+async function send() {
+  const content = text.trim();
+  if (!content) return;
 
-    setText("");
-    setBusy(true);
+  setText("");
+  setBusy(true);
 
-    const userMsg = { id: `u${Date.now()}`, role: "user", content };
-    const typingMsg = { id: `a${Date.now()}`, role: "assistant", content: "…typing" };
-    setMsgs((m) => [...m, userMsg, typingMsg]);
+  const userMsg = { id: `u${Date.now()}`, role: "user", content };
+  const typingMsg = { id: `a${Date.now()}`, role: "assistant", content: "…typing" };
+  setMsgs((m) => [...m, userMsg, typingMsg]);
 
-    ctrl.current = new AbortController();
-    const signal = ctrl.current.signal;
+  ctrl.current = new AbortController();
+  const signal = ctrl.current.signal;
 
-    try {
-      // Build full messages[] for worker
-      const payload = {
-        messages: [
-          ...msgs
-            .filter((x) => x.role === "user" || x.role === "assistant")
-            .map((x) => ({ role: x.role, content: x.content })),
-          { role: "user", content },
-        ],
-      };
+  try {
+    // 1) Build messages[] from prior turns (exclude the typing placeholder)
+    const convo = msgs
+      .filter((x) => x.role === "user" || x.role === "assistant")
+      .map((x) => ({ role: x.role, content: x.content }));
 
-      const res = await fetch(WORKER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal,
-      });
+    // 2) Append the new user message
+    convo.push({ role: "user", content });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+    // 3) Send to Worker with system seed (safer than putting GREETING as an assistant turn)
+    const res = await fetch("https://lucia-secure.arkkgraphics.workers.dev/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system: GREETING, messages: convo }),
+      signal,
+    });
 
-      setMsgs((m) =>
-        m.slice(0, -1).concat({
-          id: `a${Date.now()}`,
-          role: "assistant",
-          content: data.reply || "(no reply)",
-        })
-      );
-    } catch (err) {
-      setMsgs((m) =>
-        m.slice(0, -1).concat({
-          id: `a${Date.now()}`,
-          role: "assistant",
-          content: `(error: ${err.message})`,
-        })
-      );
-    } finally {
-      setBusy(false);
+    // Surface the Worker’s JSON error body so we can see exact cause
+    const maybeJson = await res.clone().text();
+    let data;
+    try { data = JSON.parse(maybeJson); } catch { data = null; }
+
+    if (!res.ok) {
+      throw new Error(data ? `${res.status} ${data.error || ""} ${data.details || ""}` : `HTTP ${res.status}`);
     }
+
+    setMsgs((m) =>
+      m.slice(0, -1).concat({
+        id: `a${Date.now()}`,
+        role: "assistant",
+        content: data?.reply || "(no reply)",
+      })
+    );
+  } catch (err) {
+    setMsgs((m) =>
+      m.slice(0, -1).concat({
+        id: `a${Date.now()}`,
+        role: "assistant",
+        content: `(error: ${err.message})`,
+      })
+    );
+  } finally {
+    setBusy(false);
   }
+}
+
 
   function cancel() {
     ctrl.current?.abort?.();
