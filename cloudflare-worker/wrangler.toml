@@ -3,8 +3,6 @@ main = "src/worker.mjs"
 compatibility_date = "2024-11-20"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
-compatibility_flags = ["nodejs_compat"]
-
 
 [vars]
 # Optional defaults (you can override in dashboard)
