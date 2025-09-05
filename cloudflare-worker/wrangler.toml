@@ -1,9 +1,10 @@
 name = "lucia-secure"
-main = "src/worker.js"
-compatibility_date = "2024-11-01"
+main = "src/worker.mjs"
+compatibility_date = "2024-11-20"
+workers_dev = true
+node_compat = false
 
-# Default dev vars (overridden in dashboard)
 [vars]
-DUMMY_MODE = "true"
-DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
-DEEPSEEK_MODEL = "deepseek-chat"
+# Optional defaults (you can override in dashboard)
+DEEPSEEK_MODEL = "deepseek-reasoner"
+ALLOW_ORIGIN = "*"
