@@ -1,23 +1,19 @@
-// lucia-secure/frontend/src/components/Sidebar.jsx
+// lucia-secure/frontend/src/components/Sidebar.jsx  (fix)
+
 import React, { useEffect, useState } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
 import {
-  auth,
-  googleProvider,
-  signInWithPopup,
-  signOut,
-  createConversation,
-  db,
+  auth, googleProvider, signInWithPopup, signOut,
+  createConversation, db,
 } from '../firebase'
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuthToken()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [convos, setConvos] = useState([]) // [{id, title, updatedAt, ...}]
+  const [convos, setConvos] = useState([])
 
-  // Quick prompts
   const firstPrompt = "I don’t even know what I’ve gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
@@ -25,7 +21,6 @@ export default function Sidebar({ open, onClose }) {
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
   const email = user?.email || ''
 
-  // Live list of conversations for this user
   useEffect(() => {
     if (!user?.uid) return
     const q = query(
@@ -33,7 +28,15 @@ export default function Sidebar({ open, onClose }) {
       orderBy('updatedAt', 'desc')
     )
     const unsub = onSnapshot(q, (snap) => {
-      setConvos(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      // Hide empty/untitled convos created in the past
+      const list = rows.filter(c => {
+        const tNew = (c.title || '').toLowerCase() === 'new chat'
+        const upd = c.updatedAt?.toMillis?.() ?? 0
+        const crt = c.createdAt?.toMillis?.() ?? 0
+        return !tNew || upd > crt
+      })
+      setConvos(list)
     })
     return () => unsub()
   }, [user?.uid])
@@ -44,14 +47,14 @@ export default function Sidebar({ open, onClose }) {
     const cid = await createConversation(uid, 'New chat', '')
     const url = new URL(window.location.href)
     url.searchParams.set('c', cid)
-    window.location.href = url.toString() // reload so ChatPage binds to this convo
+    window.location.href = url.toString()
     onClose?.()
   }
 
   function openConversation(cid) {
     const url = new URL(window.location.href)
     url.searchParams.set('c', cid)
-    window.location.href = url.toString() // reload to switch chat cleanly
+    window.location.href = url.toString()
     onClose?.()
   }
 
@@ -73,14 +76,22 @@ export default function Sidebar({ open, onClose }) {
               <span className="chip" onClick={() => signInWithPopup(auth, googleProvider)}>Log in to see chats</span>
             </div>
           ) : (
-            <div className="chips-wrap">
+            <div /* single-column list */ style={{ display:'grid', gap:8 }}>
               {convos.length === 0 ? (
-                <span className="chip" onClick={handleNewChat}>No chats yet — create one</span>
+                <button className="chip" style={{ width:'100%', textAlign:'left' }} onClick={handleNewChat}>
+                  No chats yet — create one
+                </button>
               ) : (
                 convos.map((c) => (
-                  <span key={c.id} className="chip" onClick={() => openConversation(c.id)}>
+                  <button
+                    key={c.id}
+                    className="chip"
+                    style={{ width:'100%', textAlign:'left' }}  // 1 per line
+                    onClick={() => openConversation(c.id)}
+                    title={c.title || 'Untitled'}
+                  >
                     {c.title || 'Untitled'}
-                  </span>
+                  </button>
                 ))
               )}
             </div>
@@ -89,10 +100,7 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="sidebar-bottom">
           {!user ? (
-            <button
-              className="user-footer login"
-              onClick={() => signInWithPopup(auth, googleProvider)}
-            >
+            <button className="user-footer login" onClick={() => signInWithPopup(auth, googleProvider)}>
               Log in
             </button>
           ) : (

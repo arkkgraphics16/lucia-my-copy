@@ -1,20 +1,21 @@
 // lucia-secure/frontend/src/pages/ChatPage.jsx  (fix)
+
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import MessageBubble from "../components/MessageBubble";
 import { onQuickPrompt } from "../lib/bus";
+import { useAuthToken } from "../hooks/useAuthToken";            // <— use reactive auth
 import {
   auth, googleProvider, signInWithPopup,
   ensureUser, getUserData, createConversation, listenMessages,
-  addMessage, bumpUpdatedAt, incrementExchanges,
-  setConversationTitle,              // <- NEW
+  addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
 } from "../firebase";
 import "../styles/limit.css";
+import "../styles/typing.css";                                    // <— typing styles
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat";
 const DEFAULT_SYSTEM =
   "L.U.C.I.A. — Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they’re hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions.";
 
-/* ------------------- Composer -------------------- */
 function Composer({ value, setValue, onSend, onCancel, busy }) {
   const textareaRef = useRef(null);
   useEffect(() => {
@@ -54,24 +55,24 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
   );
 }
 
-/* ------------------- Chat Page -------------------- */
 export default function ChatPage() {
+  const { user } = useAuthToken();                               // <— reactive uid
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [capHit, setCapHit] = useState(false);
   const [system, setSystem] = useState(DEFAULT_SYSTEM);
 
-  // conversationId from URL (?c=...)
-  const conversationId = useMemo(() => new URLSearchParams(window.location.search).get("c") || null, [window.location.search]);
+  const conversationId = useMemo(
+    () => new URLSearchParams(window.location.search).get("c") || null,
+    [window.location.search]
+  );
 
-  // quick prompt hook
   useEffect(() => {
     const off = onQuickPrompt((t) => setText(String(t || "")));
     return off;
   }, []);
 
-  // Ensure login before use
   async function ensureLogin() {
     if (!auth.currentUser) await signInWithPopup(auth, googleProvider);
     const uid = auth.currentUser.uid;
@@ -79,15 +80,13 @@ export default function ChatPage() {
     return uid;
   }
 
-  // Listen to messages for this conversation (no auto-create here)
+  // Listen to messages — rebind when uid OR conversation changes
   useEffect(() => {
-    if (!conversationId || !auth.currentUser) return;
-    const uid = auth.currentUser.uid;
-    const unsub = listenMessages(uid, conversationId, (rows) => setMsgs(rows));
+    if (!conversationId || !user?.uid) return;
+    const unsub = listenMessages(user.uid, conversationId, (rows) => setMsgs(rows));
     return () => unsub && unsub();
-  }, [conversationId, auth.currentUser]);
+  }, [conversationId, user?.uid]);
 
-  // Build messages[] for Worker from current chat
   function buildWorkerMessages(withUserText) {
     const base = msgs.map(m => ({ role: m.role, content: m.content }));
     return withUserText ? [...base, { role: "user", content: withUserText }] : base;
@@ -96,14 +95,12 @@ export default function ChatPage() {
   async function send() {
     const content = text.trim();
     if (!content) return;
-
     setBusy(true);
     setText("");
 
     try {
       const uid = await ensureLogin();
 
-      // Create conversation only when sending the first message and no ?c=
       let cid = conversationId;
       if (!cid) {
         const title = content.slice(0, 48);
@@ -112,12 +109,9 @@ export default function ChatPage() {
         url.searchParams.set("c", cid);
         window.history.replaceState({}, "", url);
       } else if (msgs.length === 0) {
-        // First message in an existing "New chat" -> retitle from first user message
-        const title = content.slice(0, 48);
-        await setConversationTitle(uid, cid, title);
+        await setConversationTitle(uid, cid, content.slice(0, 48));
       }
 
-      // Read user profile to enforce cap
       const profile = await getUserData(uid);
       const used = profile?.exchanges_used ?? 0;
       const isPro = profile?.tier === "pro";
@@ -127,10 +121,8 @@ export default function ChatPage() {
         return;
       }
 
-      // Write user message
       await addMessage(uid, cid, "user", content);
 
-      // Call Worker with this chat only
       const workerMessages = buildWorkerMessages(content);
       const res = await fetch(WORKER_URL, {
         method: "POST",
@@ -149,11 +141,9 @@ export default function ChatPage() {
         return;
       }
 
-      // Write assistant reply
       await addMessage(uid, cid, "assistant", data.reply || "(no reply)");
       await bumpUpdatedAt(uid, cid);
 
-      // Count this send (only after successful reply)
       if (!isPro) {
         await incrementExchanges(uid);
         if (used + 1 >= 10) setCapHit(true);
@@ -183,11 +173,20 @@ export default function ChatPage() {
         {msgs.length === 0 ? (
           <MessageBubble role="assistant">{DEFAULT_SYSTEM}</MessageBubble>
         ) : (
-          msgs.map((m) => (
-            <MessageBubble key={m.id} role={m.role}>
-              {m.content}
-            </MessageBubble>
-          ))
+          <>
+            {msgs.map((m) => (
+              <MessageBubble key={m.id} role={m.role}>
+                {m.content}
+              </MessageBubble>
+            ))}
+            {busy && (
+              <MessageBubble role="assistant">
+                <span className="typing">
+                  <span></span><span></span><span></span>
+                </span>
+              </MessageBubble>
+            )}
+          </>
         )}
       </div>
 
