@@ -1,4 +1,4 @@
-// lucia-secure/frontend/src/components/Sidebar.jsx  (fix)
+// lucia-secure/frontend/src/components/Sidebar.jsx
 
 import React, { useEffect, useState } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
@@ -8,23 +8,23 @@ import {
   createConversation, db,
 } from '../firebase'
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
-import '../styles/slots.css'   
+import '../styles/slots.css'     // keeps skeleton + one-per-line
+import '../styles/sidebar.css'   // NEW: unified sidebar style
 
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuthToken()
   const [menuOpen, setMenuOpen] = useState(false)
   const [convos, setConvos] = useState([])
-  const [loadingConvos, setLoadingConvos] = useState(false) // <— NEW
+  const [loadingConvos, setLoadingConvos] = useState(false)
 
-  // Quick prompts
   const firstPrompt = "I don’t even know what I’ve gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
   const email = user?.email || ''
+  const currentCid = new URLSearchParams(window.location.search).get('c') || null
 
-  // Live list of conversations for this user (with loading state + hide empties)
   useEffect(() => {
     if (!user?.uid) return
     setConvos([])
@@ -79,19 +79,18 @@ export default function Sidebar({ open, onClose }) {
           </div>
 
           <h4 style={{ marginTop: 16 }}>Slots</h4>
-
           {!user ? (
             <div className="chips-wrap">
               <span className="chip" onClick={() => signInWithPopup(auth, googleProvider)}>Log in to see chats</span>
             </div>
-          ) : loadingConvos ? (                               // <— show skeleton while loading
+          ) : loadingConvos ? (
             <div className="slots-skeleton">
               <div className="slot-row"></div>
               <div className="slot-row"></div>
               <div className="slot-row"></div>
             </div>
           ) : (
-            <div className="slots-list">                      {/* one-per-line list */}
+            <div className="slots-list">
               {convos.length === 0 ? (
                 <button className="chip slot-btn" onClick={handleNewChat}>
                   No chats yet — create one
@@ -101,6 +100,7 @@ export default function Sidebar({ open, onClose }) {
                   <button
                     key={c.id}
                     className="chip slot-btn"
+                    aria-current={currentCid === c.id ? 'page' : undefined}
                     onClick={() => openConversation(c.id)}
                     title={c.title || 'Untitled'}
                   >
