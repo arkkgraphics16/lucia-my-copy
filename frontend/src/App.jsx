@@ -1,7 +1,7 @@
 import React from 'react';
 import './styles/tokens.css';
 import './styles/app.css';
-import '../styles/limit.css';
+import './styles/limit.css';
 import AppShell from './components/AppShell';
 import ChatPage from './pages/ChatPage';
 
