@@ -1,7 +1,14 @@
+// lucia-secure/frontend/src/components/Sidebar.jsx
 import React, { useState } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
-import { auth, googleProvider, signInWithPopup, signOut } from '../firebase'
+import {
+  auth,
+  googleProvider,
+  signInWithPopup,
+  signOut,
+  createConversation, // from firebase.js helpers
+} from '../firebase'
 
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuthToken()
@@ -14,12 +21,31 @@ export default function Sidebar({ open, onClose }) {
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
   const email = user?.email || ''
 
+  async function handleNewChat() {
+    // Require login, then create a fresh conversation
+    if (!auth.currentUser) {
+      await signInWithPopup(auth, googleProvider)
+    }
+    const uid = (auth.currentUser || user).uid
+    const cid = await createConversation(uid, 'New chat', '') // title, system (empty for now)
+
+    // Put ?c=<cid> in the URL and reload so ChatPage attaches to this convo
+    const url = new URL(window.location.href)
+    url.searchParams.set('c', cid)
+    window.location.href = url.toString()
+
+    onClose?.()
+  }
+
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-content">
         <div className="sidebar-top">
           <h4>Quick Prompts</h4>
           <div className="chips-wrap">
+            {/* New chat action */}
+            <span className="chip" onClick={handleNewChat}>+ New chat</span>
+
             {chips.map((c) => (
               <span key={c} className="chip" onClick={() => clickChip(c)}>{c}</span>
             ))}

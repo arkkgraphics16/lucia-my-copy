@@ -1,33 +1,27 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import MessageBubble from "../components/MessageBubble";
 import { onQuickPrompt } from "../lib/bus";
+import {
+  auth, googleProvider, signInWithPopup,
+  ensureUser, getUserData, createConversation, listenMessages,
+  addMessage, bumpUpdatedAt, incrementExchanges
+} from "../firebase";
+import "../styles/limit.css"; // banner styles
 
-const GREETING =
+const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat";
+const DEFAULT_SYSTEM =
   "L.U.C.I.A. — Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they’re hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions.";
 
-// Change this to your Worker URL
-const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat";
-
-/* -------------------
-   Composer Component
--------------------- */
+/* ------------------- Composer -------------------- */
 function Composer({ value, setValue, onSend, onCancel, busy }) {
   const textareaRef = useRef(null);
-
   useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
-    const pad = 24;
-    const maxHeight = Math.round(lineHeight * 10 + pad);
-    const resize = () => {
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, maxHeight) + "px";
-      el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
-    };
+    const el = textareaRef.current; if (!el) return;
+    const lh = parseFloat(getComputedStyle(el).lineHeight) || 20;
+    const pad = 24, maxH = Math.round(lh * 10 + pad);
+    const resize = () => { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, maxH) + "px"; el.style.overflowY = el.scrollHeight > maxH ? "auto" : "hidden"; };
     resize();
   }, [value]);
-
   return (
     <div className="composer">
       <textarea
@@ -40,28 +34,16 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
       />
       <div className="controls">
         {busy ? (
-          <button
-            className="action-btn cancel"
-            onClick={onCancel}
-            aria-label="Cancel"
-            type="button"
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
+          <button className="action-btn cancel" onClick={onCancel} aria-label="Cancel" type="button">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         ) : (
-          <button
-            className="action-btn send"
-            onClick={onSend}
-            aria-label="Send"
-            type="button"
-            disabled={!value.trim()}
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 2L11 13" />
-              <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+          <button className="action-btn send" onClick={onSend} aria-label="Send" type="button" disabled={!value.trim()}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
             </svg>
           </button>
         )}
@@ -70,113 +52,156 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
   );
 }
 
-/* -------------------
-   Chat Page Component
--------------------- */
-function ChatPage() {
-  const [msgs, setMsgs] = useState([
-    { id: "m0", role: "assistant", content: GREETING },
-  ]);
+/* ------------------- Chat Page -------------------- */
+export default function ChatPage() {
+  const [msgs, setMsgs] = useState([]);            // messages from Firestore (this chat only)
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const ctrl = useRef(null);
+  const [capHit, setCapHit] = useState(false);     // show banner
+  const [system, setSystem] = useState(DEFAULT_SYSTEM);
 
-async function send() {
-  const content = text.trim();
-  if (!content) return;
+  // conversationId from URL (?c=...)
+  const conversationId = useMemo(() => new URLSearchParams(window.location.search).get("c") || null, [window.location.search]);
 
-  setText("");
-  setBusy(true);
-
-  const userMsg = { id: `u${Date.now()}`, role: "user", content };
-  const typingMsg = { id: `a${Date.now()}`, role: "assistant", content: "…typing" };
-  setMsgs((m) => [...m, userMsg, typingMsg]);
-
-  ctrl.current = new AbortController();
-  const signal = ctrl.current.signal;
-
-  try {
-    // 1) Build messages[] from prior turns (exclude the typing placeholder)
-    const convo = msgs
-      .filter((x) => x.role === "user" || x.role === "assistant")
-      .map((x) => ({ role: x.role, content: x.content }));
-
-    // 2) Append the new user message
-    convo.push({ role: "user", content });
-
-    // 3) Send to Worker with system seed (safer than putting GREETING as an assistant turn)
-    const res = await fetch("https://lucia-secure.arkkgraphics.workers.dev/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system: GREETING, messages: convo }),
-      signal,
-    });
-
-    // Surface the Worker’s JSON error body so we can see exact cause
-    const maybeJson = await res.clone().text();
-    let data;
-    try { data = JSON.parse(maybeJson); } catch { data = null; }
-
-    if (!res.ok) {
-      throw new Error(data ? `${res.status} ${data.error || ""} ${data.details || ""}` : `HTTP ${res.status}`);
-    }
-
-    setMsgs((m) =>
-      m.slice(0, -1).concat({
-        id: `a${Date.now()}`,
-        role: "assistant",
-        content: data?.reply || "(no reply)",
-      })
-    );
-  } catch (err) {
-    setMsgs((m) =>
-      m.slice(0, -1).concat({
-        id: `a${Date.now()}`,
-        role: "assistant",
-        content: `(error: ${err.message})`,
-      })
-    );
-  } finally {
-    setBusy(false);
-  }
-}
-
-
-  function cancel() {
-    ctrl.current?.abort?.();
-    setBusy(false);
-  }
-
-  useQuickPrompt(setText);
-
-  return (
-    <>
-      <div className="thread">
-        {msgs.map((x) => (
-          <MessageBubble key={x.id} role={x.role}>
-            {x.content}
-          </MessageBubble>
-        ))}
-      </div>
-      <Composer
-        value={text}
-        setValue={setText}
-        onSend={send}
-        onCancel={cancel}
-        busy={busy}
-      />
-    </>
-  );
-}
-
-export default ChatPage;
-
-/* -------------------
-   Hook for quick prompt
--------------------- */
-function useQuickPrompt(setText) {
+  // quick prompt hook
   useEffect(() => {
     const off = onQuickPrompt((t) => setText(String(t || "")));
     return off;
-  }, [setText]);
+  }, []);
+
+  // Ensure login before use
+  async function ensureLogin() {
+    if (!auth.currentUser) {
+      await signInWithPopup(auth, googleProvider);
+    }
+    const uid = auth.currentUser.uid;
+    await ensureUser(uid);
+    return uid;
+  }
+
+  // If no conversation in URL, create one after login
+  useEffect(() => {
+    (async () => {
+      if (!conversationId && auth.currentUser) {
+        const uid = auth.currentUser.uid;
+        const cid = await createConversation(uid, "New chat", "");
+        const url = new URL(window.location.href);
+        url.searchParams.set("c", cid);
+        window.history.replaceState({}, "", url);
+      }
+    })();
+  }, [conversationId]);
+
+  // Listen to messages for this conversation
+  useEffect(() => {
+    if (!conversationId || !auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const unsub = listenMessages(uid, conversationId, (rows) => setMsgs(rows));
+    return () => unsub && unsub();
+  }, [conversationId, auth.currentUser]);
+
+  // Build messages[] for Worker from current chat
+  function buildWorkerMessages(withUserText) {
+    const base = msgs.map(m => ({ role: m.role, content: m.content }));
+    return withUserText ? [...base, { role: "user", content: withUserText }] : base;
+  }
+
+  async function send() {
+    const content = text.trim();
+    if (!content) return;
+
+    setBusy(true);
+    setText("");
+
+    try {
+      const uid = await ensureLogin();
+
+      // Make sure conversation exists
+      let cid = conversationId;
+      if (!cid) {
+        cid = await createConversation(uid, content.slice(0, 48), "");
+        const url = new URL(window.location.href);
+        url.searchParams.set("c", cid);
+        window.history.replaceState({}, "", url);
+      }
+
+      // Read user profile to enforce cap
+      const profile = await getUserData(uid);
+      const used = profile?.exchanges_used ?? 0;
+      const isPro = profile?.tier === "pro";
+      if (!isPro && used >= 10) {
+        setCapHit(true);
+        setBusy(false);
+        return;
+      }
+
+      // Write user message
+      await addMessage(uid, cid, "user", content);
+
+      // Call Worker with this chat only
+      const workerMessages = buildWorkerMessages(content);
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system, messages: workerMessages })
+      });
+
+      const bodyText = await res.text();
+      let data = {};
+      try { data = JSON.parse(bodyText); } catch { data = {}; }
+
+      if (!res.ok || !data?.ok) {
+        await addMessage(uid, cid, "assistant", `(error: ${res.status} ${data?.error || bodyText || "unknown"})`);
+        await bumpUpdatedAt(uid, cid);
+        setBusy(false);
+        return;
+      }
+
+      // Write assistant reply
+      await addMessage(uid, cid, "assistant", data.reply || "(no reply)");
+      await bumpUpdatedAt(uid, cid);
+
+      // Count this send (only after successful reply)
+      if (!isPro) {
+        await incrementExchanges(uid);
+        if (used + 1 >= 10) setCapHit(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function cancel() {
+    setBusy(false);
+  }
+
+  return (
+    <>
+      {capHit && (
+        <div className="limit-banner">
+          <div>
+            <div className="title">Free Tier Limit reached</div>
+            <div className="desc">Upgrade to unlock full potential.</div>
+          </div>
+          <button className="act" type="button" disabled>Upgrade</button>
+        </div>
+      )}
+
+      <div className="thread">
+        {msgs.length === 0 ? (
+          <MessageBubble role="assistant">{DEFAULT_SYSTEM}</MessageBubble>
+        ) : (
+          msgs.map((m) => (
+            <MessageBubble key={m.id} role={m.role}>
+              {m.content}
+            </MessageBubble>
+          ))
+        )}
+      </div>
+
+      <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
+    </>
+  );
 }
