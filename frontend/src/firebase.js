@@ -1,3 +1,5 @@
+// lucia-secure/frontend/src/firebase.js
+
 import { initializeApp } from 'firebase/app';
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onIdTokenChanged
@@ -78,9 +80,17 @@ async function incrementExchanges(uid) {
   });
 }
 
+// NEW: retitle a convo from first user message (so sidebar shows real titles)
+async function setConversationTitle(uid, cid, title) {
+  await updateDoc(doc(db, 'users', uid, 'conversations', cid), {
+    title,
+    updatedAt: serverTimestamp()
+  });
+}
+
 export {
   app, auth, googleProvider, signInWithPopup, signOut, onIdTokenChanged,
   db,
   ensureUser, getUserData, createConversation, listenMessages,
-  addMessage, bumpUpdatedAt, incrementExchanges
+  addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
 };
