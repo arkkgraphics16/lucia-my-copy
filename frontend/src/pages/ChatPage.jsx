@@ -1,16 +1,17 @@
-// lucia-secure/frontend/src/pages/ChatPage.jsx  (fix)
+// lucia-secure/frontend/src/pages/ChatPage.jsx 
 
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import MessageBubble from "../components/MessageBubble";
 import { onQuickPrompt } from "../lib/bus";
-import { useAuthToken } from "../hooks/useAuthToken";            // <— use reactive auth
+import { useAuthToken } from "../hooks/useAuthToken";
 import {
   auth, googleProvider, signInWithPopup,
   ensureUser, getUserData, createConversation, listenMessages,
   addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
 } from "../firebase";
 import "../styles/limit.css";
-import "../styles/typing.css";                                    // <— typing styles
+import "../styles/typing.css";
+import "../styles/thread-loading.css";    // <— new
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat";
 const DEFAULT_SYSTEM =
@@ -56,12 +57,13 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
 }
 
 export default function ChatPage() {
-  const { user } = useAuthToken();                               // <— reactive uid
+  const { user } = useAuthToken();
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [capHit, setCapHit] = useState(false);
   const [system, setSystem] = useState(DEFAULT_SYSTEM);
+  const [loadingThread, setLoadingThread] = useState(false);   // <— new
 
   const conversationId = useMemo(
     () => new URLSearchParams(window.location.search).get("c") || null,
@@ -80,11 +82,15 @@ export default function ChatPage() {
     return uid;
   }
 
-  // Listen to messages — rebind when uid OR conversation changes
+  // Bind listener to uid + conversation; show skeleton during fetch
   useEffect(() => {
     if (!conversationId || !user?.uid) return;
-    const unsub = listenMessages(user.uid, conversationId, (rows) => setMsgs(rows));
-    return () => unsub && unsub();
+    setLoadingThread(true);
+    const unsub = listenMessages(user.uid, conversationId, (rows) => {
+      setMsgs(rows);
+      setLoadingThread(false);
+    });
+    return () => { setLoadingThread(true); unsub && unsub(); };
   }, [conversationId, user?.uid]);
 
   function buildWorkerMessages(withUserText) {
@@ -170,7 +176,13 @@ export default function ChatPage() {
       )}
 
       <div className="thread">
-        {msgs.length === 0 ? (
+        {loadingThread ? (
+          <div className="thread-skeleton">
+            <div className="msg-skel"></div>
+            <div className="msg-skel me"></div>
+            <div className="msg-skel"></div>
+          </div>
+        ) : msgs.length === 0 ? (
           <MessageBubble role="assistant">{DEFAULT_SYSTEM}</MessageBubble>
         ) : (
           <>
@@ -181,9 +193,7 @@ export default function ChatPage() {
             ))}
             {busy && (
               <MessageBubble role="assistant">
-                <span className="typing">
-                  <span></span><span></span><span></span>
-                </span>
+                <span className="typing"><span></span><span></span><span></span></span>
               </MessageBubble>
             )}
           </>
