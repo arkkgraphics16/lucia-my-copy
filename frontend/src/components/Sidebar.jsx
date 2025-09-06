@@ -1,5 +1,5 @@
 // lucia-secure/frontend/src/components/Sidebar.jsx
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
 import {
@@ -7,13 +7,17 @@ import {
   googleProvider,
   signInWithPopup,
   signOut,
-  createConversation, // from firebase.js helpers
+  createConversation,
+  db,
 } from '../firebase'
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuthToken()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [convos, setConvos] = useState([]) // [{id, title, updatedAt, ...}]
 
+  // Quick prompts
   const firstPrompt = "I don’t even know what I’ve gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
@@ -21,19 +25,33 @@ export default function Sidebar({ open, onClose }) {
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
   const email = user?.email || ''
 
-  async function handleNewChat() {
-    // Require login, then create a fresh conversation
-    if (!auth.currentUser) {
-      await signInWithPopup(auth, googleProvider)
-    }
-    const uid = (auth.currentUser || user).uid
-    const cid = await createConversation(uid, 'New chat', '') // title, system (empty for now)
+  // Live list of conversations for this user
+  useEffect(() => {
+    if (!user?.uid) return
+    const q = query(
+      collection(db, 'users', user.uid, 'conversations'),
+      orderBy('updatedAt', 'desc')
+    )
+    const unsub = onSnapshot(q, (snap) => {
+      setConvos(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    })
+    return () => unsub()
+  }, [user?.uid])
 
-    // Put ?c=<cid> in the URL and reload so ChatPage attaches to this convo
+  async function handleNewChat() {
+    if (!auth.currentUser) await signInWithPopup(auth, googleProvider)
+    const uid = (auth.currentUser || user).uid
+    const cid = await createConversation(uid, 'New chat', '')
     const url = new URL(window.location.href)
     url.searchParams.set('c', cid)
-    window.location.href = url.toString()
+    window.location.href = url.toString() // reload so ChatPage binds to this convo
+    onClose?.()
+  }
 
+  function openConversation(cid) {
+    const url = new URL(window.location.href)
+    url.searchParams.set('c', cid)
+    window.location.href = url.toString() // reload to switch chat cleanly
     onClose?.()
   }
 
@@ -43,17 +61,30 @@ export default function Sidebar({ open, onClose }) {
         <div className="sidebar-top">
           <h4>Quick Prompts</h4>
           <div className="chips-wrap">
-            {/* New chat action */}
             <span className="chip" onClick={handleNewChat}>+ New chat</span>
-
             {chips.map((c) => (
               <span key={c} className="chip" onClick={() => clickChip(c)}>{c}</span>
             ))}
           </div>
 
           <h4 style={{ marginTop: 16 }}>Slots</h4>
-          <div className="chip">Account</div>
-          <div className="chip">Project</div>
+          {!user ? (
+            <div className="chips-wrap">
+              <span className="chip" onClick={() => signInWithPopup(auth, googleProvider)}>Log in to see chats</span>
+            </div>
+          ) : (
+            <div className="chips-wrap">
+              {convos.length === 0 ? (
+                <span className="chip" onClick={handleNewChat}>No chats yet — create one</span>
+              ) : (
+                convos.map((c) => (
+                  <span key={c.id} className="chip" onClick={() => openConversation(c.id)}>
+                    {c.title || 'Untitled'}
+                  </span>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         <div className="sidebar-bottom">
