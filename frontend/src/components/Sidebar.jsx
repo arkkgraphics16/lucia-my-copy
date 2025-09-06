@@ -8,12 +8,15 @@ import {
   createConversation, db,
 } from '../firebase'
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import '../styles/slots.css'   
 
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuthToken()
   const [menuOpen, setMenuOpen] = useState(false)
   const [convos, setConvos] = useState([])
+  const [loadingConvos, setLoadingConvos] = useState(false) // <— NEW
 
+  // Quick prompts
   const firstPrompt = "I don’t even know what I’ve gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
@@ -21,15 +24,18 @@ export default function Sidebar({ open, onClose }) {
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
   const email = user?.email || ''
 
+  // Live list of conversations for this user (with loading state + hide empties)
   useEffect(() => {
     if (!user?.uid) return
+    setConvos([])
+    setLoadingConvos(true)
+
     const q = query(
       collection(db, 'users', user.uid, 'conversations'),
       orderBy('updatedAt', 'desc')
     )
     const unsub = onSnapshot(q, (snap) => {
       const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      // Hide empty/untitled convos created in the past
       const list = rows.filter(c => {
         const tNew = (c.title || '').toLowerCase() === 'new chat'
         const upd = c.updatedAt?.toMillis?.() ?? 0
@@ -37,7 +43,9 @@ export default function Sidebar({ open, onClose }) {
         return !tNew || upd > crt
       })
       setConvos(list)
-    })
+      setLoadingConvos(false)
+    }, () => setLoadingConvos(false))
+
     return () => unsub()
   }, [user?.uid])
 
@@ -71,22 +79,28 @@ export default function Sidebar({ open, onClose }) {
           </div>
 
           <h4 style={{ marginTop: 16 }}>Slots</h4>
+
           {!user ? (
             <div className="chips-wrap">
               <span className="chip" onClick={() => signInWithPopup(auth, googleProvider)}>Log in to see chats</span>
             </div>
+          ) : loadingConvos ? (                               // <— show skeleton while loading
+            <div className="slots-skeleton">
+              <div className="slot-row"></div>
+              <div className="slot-row"></div>
+              <div className="slot-row"></div>
+            </div>
           ) : (
-            <div /* single-column list */ style={{ display:'grid', gap:8 }}>
+            <div className="slots-list">                      {/* one-per-line list */}
               {convos.length === 0 ? (
-                <button className="chip" style={{ width:'100%', textAlign:'left' }} onClick={handleNewChat}>
+                <button className="chip slot-btn" onClick={handleNewChat}>
                   No chats yet — create one
                 </button>
               ) : (
-                convos.map((c) => (
+                convos.map(c => (
                   <button
                     key={c.id}
-                    className="chip"
-                    style={{ width:'100%', textAlign:'left' }}  // 1 per line
+                    className="chip slot-btn"
                     onClick={() => openConversation(c.id)}
                     title={c.title || 'Untitled'}
                   >
