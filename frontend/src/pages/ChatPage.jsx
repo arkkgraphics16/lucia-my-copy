@@ -1,12 +1,14 @@
+// lucia-secure/frontend/src/pages/ChatPage.jsx  (fix)
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import MessageBubble from "../components/MessageBubble";
 import { onQuickPrompt } from "../lib/bus";
 import {
   auth, googleProvider, signInWithPopup,
   ensureUser, getUserData, createConversation, listenMessages,
-  addMessage, bumpUpdatedAt, incrementExchanges
+  addMessage, bumpUpdatedAt, incrementExchanges,
+  setConversationTitle,              // <- NEW
 } from "../firebase";
-import "../styles/limit.css"; // banner styles
+import "../styles/limit.css";
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat";
 const DEFAULT_SYSTEM =
@@ -54,10 +56,10 @@ function Composer({ value, setValue, onSend, onCancel, busy }) {
 
 /* ------------------- Chat Page -------------------- */
 export default function ChatPage() {
-  const [msgs, setMsgs] = useState([]);            // messages from Firestore (this chat only)
+  const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [capHit, setCapHit] = useState(false);     // show banner
+  const [capHit, setCapHit] = useState(false);
   const [system, setSystem] = useState(DEFAULT_SYSTEM);
 
   // conversationId from URL (?c=...)
@@ -71,28 +73,13 @@ export default function ChatPage() {
 
   // Ensure login before use
   async function ensureLogin() {
-    if (!auth.currentUser) {
-      await signInWithPopup(auth, googleProvider);
-    }
+    if (!auth.currentUser) await signInWithPopup(auth, googleProvider);
     const uid = auth.currentUser.uid;
     await ensureUser(uid);
     return uid;
   }
 
-  // If no conversation in URL, create one after login
-  useEffect(() => {
-    (async () => {
-      if (!conversationId && auth.currentUser) {
-        const uid = auth.currentUser.uid;
-        const cid = await createConversation(uid, "New chat", "");
-        const url = new URL(window.location.href);
-        url.searchParams.set("c", cid);
-        window.history.replaceState({}, "", url);
-      }
-    })();
-  }, [conversationId]);
-
-  // Listen to messages for this conversation
+  // Listen to messages for this conversation (no auto-create here)
   useEffect(() => {
     if (!conversationId || !auth.currentUser) return;
     const uid = auth.currentUser.uid;
@@ -116,13 +103,18 @@ export default function ChatPage() {
     try {
       const uid = await ensureLogin();
 
-      // Make sure conversation exists
+      // Create conversation only when sending the first message and no ?c=
       let cid = conversationId;
       if (!cid) {
-        cid = await createConversation(uid, content.slice(0, 48), "");
+        const title = content.slice(0, 48);
+        cid = await createConversation(uid, title, "");
         const url = new URL(window.location.href);
         url.searchParams.set("c", cid);
         window.history.replaceState({}, "", url);
+      } else if (msgs.length === 0) {
+        // First message in an existing "New chat" -> retitle from first user message
+        const title = content.slice(0, 48);
+        await setConversationTitle(uid, cid, title);
       }
 
       // Read user profile to enforce cap
@@ -173,9 +165,7 @@ export default function ChatPage() {
     }
   }
 
-  function cancel() {
-    setBusy(false);
-  }
+  function cancel() { setBusy(false); }
 
   return (
     <>
