@@ -1,55 +1,68 @@
 /* lucia-secure/frontend/src/styles/composer.css */
 
-/* dynamic vars set by JS */
+/* Vars updated by JS */
 :root{
-  --composer-h: 72px;
-  --kb-safe: 0px;
+  --composer-h: 72px;       /* actual pixel height of .composer-row */
+  --kb-safe: 0px;           /* visualViewport overlap */
 }
 
-/* sizing for textarea (used by JS too) */
+/* Textarea sizing (also read in JS) */
 .textarea{ --ta-min: 48px; --ta-max: 240px; }
 
-/* ===== Composer container: TRANSPARENT (no dark bar) ===== */
+/* ================== WRAPPER: NO PAINT ================== */
+/* Fixed, paintless, and non-interactive to avoid any “transparent block” */
 .composer{
-  display:flex; gap:10px; align-items:flex-end;
-  padding: 10px 12px;
-  background: transparent !important;   /* kill the big dark block */
-  border-top: none !important;
+  position: fixed;
+  left: 0; right: 0;
+  bottom: var(--kb-safe, 0px);
+  height: 0;               /* <-- wrapper occupies no visible height */
+  pointer-events: none;    /* wrapper doesn’t catch taps */
+  background: transparent !important;
+  border: 0 !important;
   box-shadow: none !important;
-  position: sticky; bottom: 0; z-index: 60;
 }
 
-/* Textarea: the only visible element, with soft shadow */
+/* The only visible row; positioned at the real bottom */
+.composer-row{
+  position: absolute;
+  left: 12px; right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex; gap: 10px; align-items: flex-end;
+  pointer-events: auto;     /* children are interactive */
+}
+
+/* Thread bottom spacing so last message isn’t covered */
+.thread{ padding-bottom: calc(var(--composer-h) + 12px); }
+
+/* ================== INPUT ================== */
 .textarea{
-  flex:1 1 auto;
+  flex: 1 1 auto;
   min-height: var(--ta-min);
   max-height: var(--ta-max);
-  padding:12px 14px;
-  border-radius:14px;
-  border:1px solid var(--border);
-  background: var(--surface);           /* same as chat area */
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);     /* same tone as chat area */
   color: var(--text);
-  resize:none; line-height:1.4;
-  box-shadow: 0 10px 26px rgba(0,0,0,.28); /* subtle 3D */
-  outline:none;
+  resize: none;
+  line-height: 1.4;
+  box-shadow: 0 10px 26px rgba(0,0,0,.28);  /* subtle 3D */
+  outline: none;
   transition: height .12s ease;
 }
 
-/* Thread bottom spacing so last msg isn't covered */
-.thread{ padding-bottom: calc(var(--composer-h) + 12px); }
-
-/* Controls */
+/* ================== CONTROLS ================== */
 .controls{ display:flex; gap:10px; align-items:center; }
 
-/* ===== Send button: blue circle + WHITE triangle ===== */
+/* Squircle send button (blue bg + white right triangle) */
 .send-pill{
   appearance:none; border:none; background:transparent;
   padding:0; line-height:0; cursor:pointer;
-  width:46px; height:46px;
+  width:48px; height:42px; /* matches SVG viewBox */
 }
-.send-pill svg{ width:46px; height:46px; display:block; }
-.pill-bg{ fill: var(--primary); }              /* blue */
-.pill-arrow{ fill: #ffffff; }                  /* white triangle */
+.send-pill svg{ width:48px; height:42px; display:block; }
+.pill-bg{ fill: var(--primary); }     /* blue background */
+.pill-arrow{ fill: #fff; }            /* white triangle */
 .send-pill:disabled{ cursor:default; opacity:.55; }
 
 /* Cancel stays red */
@@ -59,8 +72,7 @@
   border:1px solid transparent; background: var(--core); box-shadow: var(--shadow-1);
 }
 
-/* Mobile: lift above keyboard */
+/* Mobile still tracks keyboard safely (wrapper is fixed) */
 @media (max-width:768px){
-  .composer{ position: fixed; left:0; right:0; bottom: var(--kb-safe, 0px); }
   .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
 }

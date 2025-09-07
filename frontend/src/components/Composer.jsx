@@ -3,26 +3,25 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/composer.css'
 
 export default function Composer({ value, setValue, onSend, onCancel, busy }) {
-  const wrapRef = useRef(null)
+  const rowRef  = useRef(null)      // measure the visible row (not the wrapper)
   const taRef   = useRef(null)
   const [hasText, setHasText] = useState(Boolean(value?.trim()))
 
-  // Resize logic – grows with content, SHRINKS back to min when empty
+  // Grow/Shrink textarea (guaranteed shrink when empty)
   const resizeTA = useCallback(() => {
     const el = taRef.current
     if (!el) return
-    const styles = getComputedStyle(el)
-    const min = parseFloat(styles.getPropertyValue('--ta-min')) || 48
-    const max = parseFloat(styles.getPropertyValue('--ta-max')) || 240
+    const cs  = getComputedStyle(el)
+    const min = parseFloat(cs.getPropertyValue('--ta-min')) || 48
+    const max = parseFloat(cs.getPropertyValue('--ta-max')) || 240
 
-    el.style.height = 'auto'                     // allow shrink
+    el.style.height = 'auto'
     const next = Math.max(min, Math.min(el.scrollHeight, max))
     el.style.height = next + 'px'
-
-    // guarantee shrink when empty (iOS/Safari safe)
     if (!el.value.trim()) el.style.height = min + 'px'
   }, [])
 
+  // Enter to send
   function key(e){
     if (e.key === 'Enter' && !e.shiftKey){
       e.preventDefault()
@@ -30,8 +29,10 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
     }
   }
 
+  // state
   useEffect(() => setHasText(Boolean((value || '').trim())), [value])
 
+  // resize on input and when value changes programmatically
   useEffect(() => {
     const el = taRef.current
     if (!el) return
@@ -41,20 +42,19 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
     return () => el.removeEventListener('input', onInput)
   }, [resizeTA])
 
-  // Also shrink on any programmatic value change (after send → '')
   useEffect(() => {
     const id = requestAnimationFrame(resizeTA)
     return () => cancelAnimationFrame(id)
   }, [value, resizeTA])
 
-  // Keep thread bottom padding synced to composer height
+  // Keep thread padding in sync with *row* height
   useEffect(() => {
     const root = document.documentElement
     const ro = new ResizeObserver(() => {
-      const h = wrapRef.current?.offsetHeight || 72
+      const h = rowRef.current?.offsetHeight || 72
       root.style.setProperty('--composer-h', `${h}px`)
     })
-    wrapRef.current && ro.observe(wrapRef.current)
+    rowRef.current && ro.observe(rowRef.current)
     return () => { ro.disconnect(); root.style.removeProperty('--composer-h') }
   }, [])
 
@@ -78,39 +78,42 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
   }, [])
 
   return (
-    <div ref={wrapRef} className="composer">
-      <textarea
-        ref={taRef}
-        className="textarea"
-        placeholder="Type a message..."
-        value={value}
-        onChange={e=>setValue(e.target.value)}
-        onKeyDown={key}
-      />
+    <div className="composer">
+      {/* The only painted row (wrapper is paintless) */}
+      <div ref={rowRef} className="composer-row">
+        <textarea
+          ref={taRef}
+          className="textarea"
+          placeholder="Type a message..."
+          value={value}
+          onChange={e=>setValue(e.target.value)}
+          onKeyDown={key}
+        />
 
-      <div className="controls">
-        {busy ? (
-          <button className="action-btn cancel" onClick={onCancel} title="Cancel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
-                 strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        ) : (
-          <button
-            className={`send-pill${hasText ? ' active' : ''}`}
-            onClick={onSend}
-            disabled={!hasText}
-            title="Send"
-            aria-label="Send"
-          >
-            {/* Blue circle with WHITE right-pointing triangle */}
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="12" className="pill-bg" />
-              <polygon points="9,7 9,17 17,12" className="pill-arrow" />
-            </svg>
-          </button>
-        )}
+        <div className="controls">
+          {busy ? (
+            <button className="action-btn cancel" onClick={onCancel} title="Cancel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
+                   strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          ) : (
+            <button
+              className={`send-pill${hasText ? ' active' : ''}`}
+              onClick={onSend}
+              disabled={!hasText}
+              title="Send"
+              aria-label="Send"
+            >
+              {/* Blue rounded-square with WHITE right triangle */}
+              <svg viewBox="0 0 48 42" aria-hidden="true">
+                <rect x="0" y="0" width="48" height="42" rx="14" ry="14" className="pill-bg"/>
+                <polygon points="20,11 20,31 34,21" className="pill-arrow"/>
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
