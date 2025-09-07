@@ -36,6 +36,10 @@
   outline: none;
 }
 
+.textarea{
+  transition: height .12s ease;  /* optional: makes shrink feel snappy */
+}
+
 /* Keep the thread’s last message visible behind fixed composer on mobile */
 .thread{ padding-bottom: calc(var(--composer-h) + 12px); }
 

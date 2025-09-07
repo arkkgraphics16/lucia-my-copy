@@ -1,13 +1,24 @@
 // lucia-secure/frontend/src/components/Composer.jsx
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/composer.css'
 
 export default function Composer({ value, setValue, onSend, onCancel, busy }) {
   const wrapRef = useRef(null)
-  const taRef = useRef(null)
+  const taRef   = useRef(null)
   const [hasText, setHasText] = useState(Boolean(value?.trim()))
 
-  // Enter to send (Shift+Enter for newline)
+  // ---- helpers -------------------------------------------------------------
+  const resizeTA = useCallback(() => {
+    const el = taRef.current
+    if (!el) return
+    // Force reflow then clamp to max; guarantee it can shrink when empty
+    el.style.height = '0px'
+    const max = parseFloat(getComputedStyle(el).getPropertyValue('--ta-max')) || 240
+    const min = 48 // matches CSS min-height
+    const next = Math.max(min, Math.min(el.scrollHeight, max))
+    el.style.height = next + 'px'
+  }, [])
+
   function key(e){
     if (e.key === 'Enter' && !e.shiftKey){
       e.preventDefault()
@@ -15,41 +26,45 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
     }
   }
 
-  // Track input state
+  // ---- state + effects -----------------------------------------------------
   useEffect(() => setHasText(Boolean((value || '').trim())), [value])
 
-  // Auto–resize textarea up to 10 lines
+  // Resize on user input (grows smoothly)
   useEffect(() => {
     const el = taRef.current
     if (!el) return
-    const resize = () => {
-      el.style.height = '0px'
-      const max = parseFloat(getComputedStyle(el).getPropertyValue('--ta-max')) || 240
-      el.style.height = Math.min(el.scrollHeight, max) + 'px'
-    }
-    resize()
-    el.addEventListener('input', resize)
-    return () => el.removeEventListener('input', resize)
-  }, [])
+    const onInput = () => resizeTA()
+    el.addEventListener('input', onInput)
+    // Initial size (first mount)
+    resizeTA()
+    return () => el.removeEventListener('input', onInput)
+  }, [resizeTA])
 
-  // Keep thread bottom padding in sync with composer height
+  // IMPORTANT: also resize when value changes programmatically
+  // (e.g., after send we clear the field → shrink back)
+  useEffect(() => {
+    // wait one frame so DOM has the new value
+    const id = requestAnimationFrame(resizeTA)
+    return () => cancelAnimationFrame(id)
+  }, [value, resizeTA])
+
+  // Keep thread bottom padding synced to composer height
   useEffect(() => {
     const root = document.documentElement
     const ro = new ResizeObserver(() => {
       const h = wrapRef.current?.offsetHeight || 72
       root.style.setProperty('--composer-h', `${h}px`)
     })
-    if (wrapRef.current) ro.observe(wrapRef.current)
+    wrapRef.current && ro.observe(wrapRef.current)
     return () => { ro.disconnect(); root.style.removeProperty('--composer-h') }
   }, [])
 
-  // Mobile keyboards (iOS/Android): raise the bar above the keyboard
+  // Lift above mobile keyboard (iOS/Android)
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
     const root = document.documentElement
     const onVV = () => {
-      // amount the keyboard overlaps the viewport bottom
       const overlap = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop))
       root.style.setProperty('--kb-safe', overlap + 'px')
     }
@@ -63,6 +78,7 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
     }
   }, [])
 
+  // ---- render --------------------------------------------------------------
   return (
     <div ref={wrapRef} className="composer">
       <textarea
@@ -73,10 +89,10 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
         onChange={e=>setValue(e.target.value)}
         onKeyDown={key}
       />
+
       <div className="controls">
         {busy ? (
           <button className="action-btn cancel" onClick={onCancel} title="Cancel">
-            {/* red cancel (unchanged) */}
             <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
@@ -89,11 +105,13 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
             title="Send"
             aria-label="Send"
           >
-            {/* minimalist right arrow, no background */}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 12h14"/>
-              <path d="M13 5l7 7-7 7"/>
+            {/* Custom tri-arrow (outlined) with inner V, no background */}
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor"
+                 strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {/* outer triangle */}
+              <path d="M3 12 L21 4 L21 20 Z"/>
+              {/* inner V */}
+              <path d="M9 12 L21 4 M9 12 L21 20"/>
             </svg>
           </button>
         )}
