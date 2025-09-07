@@ -1,0 +1,85 @@
+/* lucia-secure/frontend/src/styles/composer.css */
+
+/* dynamic vars set by JS */
+:root{
+  --composer-h: 72px;         /* updated by ResizeObserver */
+  --kb-safe: 0px;             /* set by visualViewport */
+}
+
+/* Composer bar: same bg as chat area, with top shadow (3D) */
+.composer{
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  padding: 12px;
+  background: var(--surface-2);       /* same as chat area */
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -10px 24px rgba(0,0,0,.28);
+  position: sticky;
+  bottom: 0;
+  z-index: 60;
+}
+
+/* Textarea: soft elevation, clean border */
+.textarea{
+  flex: 1 1 auto;
+  min-height: 48px;
+  max-height: var(--ta-max, 240px);   /* ~10 lines default */
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  resize: none;
+  line-height: 1.4;
+  box-shadow: var(--shadow-2);
+  outline: none;
+}
+
+/* Keep the thread’s last message visible behind fixed composer on mobile */
+.thread{ padding-bottom: calc(var(--composer-h) + 12px); }
+
+/* Controls */
+.controls{ display:flex; gap:10px; align-items:center; }
+
+/* Minimal SEND icon (no background) */
+.send-icon{
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 8px;
+  line-height: 0;
+  color: var(--muted);          /* gray when empty */
+  cursor: pointer;
+  transition: transform .15s ease, color .15s ease, opacity .15s ease;
+}
+.send-icon svg{ width: 26px; height: 26px; }
+.send-icon:disabled{ cursor: default; opacity: .7; }
+.send-icon.active{ color: var(--primary); }   /* blue when ready */
+.send-icon:hover:not(:disabled){ transform: translateY(-1px); }
+
+/* Cancel stays red and circular (your existing style) */
+.action-btn.cancel{
+  width: 46px; height: 46px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; background: var(--core); box-shadow: var(--shadow-1);
+}
+
+/* -------- Mobile behaviour: sits above the keyboard -------- */
+@media (max-width: 768px){
+  /* On mobile, make the bar fixed and lift it above keyboard using --kb-safe */
+  .composer{
+    position: fixed;
+    left: 0; right: 0;
+    bottom: var(--kb-safe, 0px);
+  }
+
+  /* When the sidebar overlay is open, composer drops under it (so overlay dominates) */
+  .sidebar.open ~ .main .composer{ z-index: 10; }
+
+  /* Give a little extra room for the very last message */
+  .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
+}
+
+/* --- Textarea max lines helper (used by JS to compute height) --- */
+.textarea{ --ta-max: 240px; } /* ≈ 10 lines at 1.4 line-height */
