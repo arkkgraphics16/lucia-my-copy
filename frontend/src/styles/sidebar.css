@@ -1,4 +1,5 @@
 /* lucia-secure/frontend/src/styles/sidebar.css  (replace) */
+:root{ --sidebar-width: 280px; } /* if you use 280px */
 
 /* one-tone sidebar to match header */
 .sidebar{
