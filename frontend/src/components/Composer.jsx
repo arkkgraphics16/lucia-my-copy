@@ -7,16 +7,22 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
   const taRef   = useRef(null)
   const [hasText, setHasText] = useState(Boolean(value?.trim()))
 
-  // ---- helpers -------------------------------------------------------------
+  // Resize logic – shrinks when empty, grows with content
   const resizeTA = useCallback(() => {
     const el = taRef.current
     if (!el) return
-    // Force reflow then clamp to max; guarantee it can shrink when empty
-    el.style.height = '0px'
-    const max = parseFloat(getComputedStyle(el).getPropertyValue('--ta-max')) || 240
-    const min = 48 // matches CSS min-height
+
+    const styles = getComputedStyle(el)
+    const min = parseFloat(styles.getPropertyValue('--ta-min')) || 48
+    const max = parseFloat(styles.getPropertyValue('--ta-max')) || 240
+
+    // iOS/Safari-friendly: measure with 'auto', then clamp
+    el.style.height = 'auto'
     const next = Math.max(min, Math.min(el.scrollHeight, max))
     el.style.height = next + 'px'
+
+    // If value is empty, hard-reset to minimum (guaranteed shrink)
+    if (!el.value.trim()) el.style.height = min + 'px'
   }, [])
 
   function key(e){
@@ -26,24 +32,19 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
     }
   }
 
-  // ---- state + effects -----------------------------------------------------
   useEffect(() => setHasText(Boolean((value || '').trim())), [value])
 
-  // Resize on user input (grows smoothly)
   useEffect(() => {
     const el = taRef.current
     if (!el) return
     const onInput = () => resizeTA()
     el.addEventListener('input', onInput)
-    // Initial size (first mount)
     resizeTA()
     return () => el.removeEventListener('input', onInput)
   }, [resizeTA])
 
-  // IMPORTANT: also resize when value changes programmatically
-  // (e.g., after send we clear the field → shrink back)
+  // Also resize on any programmatic change (e.g. after send -> value === '')
   useEffect(() => {
-    // wait one frame so DOM has the new value
     const id = requestAnimationFrame(resizeTA)
     return () => cancelAnimationFrame(id)
   }, [value, resizeTA])
@@ -59,7 +60,7 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
     return () => { ro.disconnect(); root.style.removeProperty('--composer-h') }
   }, [])
 
-  // Lift above mobile keyboard (iOS/Android)
+  // Lift above mobile keyboard
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
@@ -78,7 +79,6 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
     }
   }, [])
 
-  // ---- render --------------------------------------------------------------
   return (
     <div ref={wrapRef} className="composer">
       <textarea
@@ -93,25 +93,23 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
       <div className="controls">
         {busy ? (
           <button className="action-btn cancel" onClick={onCancel} title="Cancel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
+                 strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
           </button>
         ) : (
           <button
-            className={`send-icon${hasText ? ' active' : ''}`}
+            className={`send-pill${hasText ? ' active' : ''}`}
             onClick={onSend}
             disabled={!hasText}
             title="Send"
             aria-label="Send"
           >
-            {/* Custom tri-arrow (outlined) with inner V, no background */}
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor"
-                 strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              {/* outer triangle */}
-              <path d="M3 12 L21 4 L21 20 Z"/>
-              {/* inner V */}
-              <path d="M9 12 L21 4 M9 12 L21 20"/>
+            {/* Blue circle with solid red, right-pointing triangle */}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="12" className="pill-bg" />
+              <polygon points="9,7 9,17 17,12" className="pill-arrow" />
             </svg>
           </button>
         )}

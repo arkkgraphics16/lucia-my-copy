@@ -2,88 +2,67 @@
 
 /* dynamic vars set by JS */
 :root{
-  --composer-h: 72px;         /* updated by ResizeObserver */
-  --kb-safe: 0px;             /* set by visualViewport */
+  --composer-h: 72px;
+  --kb-safe: 0px;
 }
 
-/* Composer bar: same bg as chat area, with top shadow (3D) */
+/* sizing for textarea (used by JS too) */
+.textarea{ --ta-min: 48px; --ta-max: 240px; } /* ≈ 10 lines */
+
+/* Composer bar: same bg as chat area + shadow */
 .composer{
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  padding: 12px;
-  background: var(--surface-2);       /* same as chat area */
-  border-top: 1px solid var(--border);
+  display:flex; gap:10px; align-items:flex-end;
+  padding:12px;
+  background: var(--surface-2);
+  border-top:1px solid var(--border);
   box-shadow: 0 -10px 24px rgba(0,0,0,.28);
-  position: sticky;
-  bottom: 0;
-  z-index: 60;
+  position: sticky; bottom: 0; z-index: 60;
 }
 
-/* Textarea: soft elevation, clean border */
+/* Textarea */
 .textarea{
-  flex: 1 1 auto;
-  min-height: 48px;
-  max-height: var(--ta-max, 240px);   /* ~10 lines default */
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
+  flex:1 1 auto;
+  min-height: var(--ta-min);
+  max-height: var(--ta-max);
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  resize: none;
-  line-height: 1.4;
+  resize:none; line-height:1.4;
   box-shadow: var(--shadow-2);
-  outline: none;
+  outline:none;
+  transition: height .12s ease; /* snappy shrink/expand */
 }
 
-.textarea{
-  transition: height .12s ease;  /* optional: makes shrink feel snappy */
-}
-
-/* Keep the thread’s last message visible behind fixed composer on mobile */
+/* Thread bottom spacing so last msg isn't covered */
 .thread{ padding-bottom: calc(var(--composer-h) + 12px); }
 
 /* Controls */
 .controls{ display:flex; gap:10px; align-items:center; }
 
-/* Minimal SEND icon (no background) */
-.send-icon{
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: 8px;
-  line-height: 0;
-  color: var(--muted);          /* gray when empty */
-  cursor: pointer;
-  transition: transform .15s ease, color .15s ease, opacity .15s ease;
+/* ===== Send button: blue circle + red triangle ===== */
+.send-pill{
+  appearance:none; border:none; background:transparent;
+  padding:0; line-height:0; cursor:pointer;
+  width:46px; height:46px;
 }
-.send-icon svg{ width: 26px; height: 26px; }
-.send-icon:disabled{ cursor: default; opacity: .7; }
-.send-icon.active{ color: var(--primary); }   /* blue when ready */
-.send-icon:hover:not(:disabled){ transform: translateY(-1px); }
+.send-pill svg{ width:46px; height:46px; display:block; }
+.pill-bg{ fill: var(--primary); }            /* blue circle */
+.pill-arrow{ fill: #FF3B30; }                /* solid red triangle */
 
-/* Cancel stays red and circular (your existing style) */
+/* disabled (no text): dim both bg and arrow */
+.send-pill:disabled{ cursor:default; opacity:.55; }
+
+/* Cancel stays red (your existing style) */
 .action-btn.cancel{
-  width: 46px; height: 46px; border-radius: 999px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid transparent; background: var(--core); box-shadow: var(--shadow-1);
+  width:46px; height:46px; border-radius:999px;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid transparent; background: var(--core); box-shadow: var(--shadow-1);
 }
 
-/* -------- Mobile behaviour: sits above the keyboard -------- */
-@media (max-width: 768px){
-  /* On mobile, make the bar fixed and lift it above keyboard using --kb-safe */
-  .composer{
-    position: fixed;
-    left: 0; right: 0;
-    bottom: var(--kb-safe, 0px);
-  }
-
-  /* When the sidebar overlay is open, composer drops under it (so overlay dominates) */
-  .sidebar.open ~ .main .composer{ z-index: 10; }
-
-  /* Give a little extra room for the very last message */
+/* Mobile: lift above keyboard */
+@media (max-width:768px){
+  .composer{ position: fixed; left:0; right:0; bottom: var(--kb-safe, 0px); }
   .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
 }
-
-/* --- Textarea max lines helper (used by JS to compute height) --- */
-.textarea{ --ta-max: 240px; } /* ≈ 10 lines at 1.4 line-height */
