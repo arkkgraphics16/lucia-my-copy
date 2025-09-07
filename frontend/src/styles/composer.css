@@ -37,6 +37,7 @@
 @media (min-width: 1024px){
   .composer-row{
     left: calc(var(--sidebar-width) + 12px);
+    overflow: hidden;       /* prevents input shadow from bleeding under sidebar */
   }
 }
 
@@ -84,4 +85,16 @@
 /* Mobile still tracks keyboard safely (wrapper is fixed) */
 @media (max-width:768px){
   .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
+}
+
+/* ================== HARD KILL ANY BLUR/FROST ================== */
+.composer,
+.composer *,
+.composer::before,
+.composer::after,
+.composer-row::before,
+.composer-row::after{
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
 }
