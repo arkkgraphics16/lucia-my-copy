@@ -4,7 +4,7 @@
 :root{
   --composer-h: 72px;       /* actual pixel height of .composer-row */
   --kb-safe: 0px;           /* visualViewport overlap */
-  --sidebar-width: 260px;   /* <-- set your desktop sidebar width here (override in global CSS if needed) */
+  --sidebar-width: 260px;   /* desktop/tablet sidebar width; override globally if needed */
 }
 
 /* Textarea sizing (also read in JS) */
@@ -33,7 +33,15 @@
   pointer-events: auto;     /* children are interactive */
 }
 
-/* On desktop (persistent sidebar), start after the sidebar */
+/* ================== TABLET OFFSET (sidebar persistent here) ================== */
+/* If your sidebar becomes persistent at a different width, tweak 820px. */
+@media (min-width: 820px){
+  .composer-row{
+    left: calc(var(--sidebar-width) + 12px);
+  }
+}
+
+/* ================== DESKTOP (keep overflow guard) ================== */
 @media (min-width: 1024px){
   .composer-row{
     left: calc(var(--sidebar-width) + 12px);
