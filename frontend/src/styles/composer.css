@@ -7,19 +7,19 @@
 }
 
 /* sizing for textarea (used by JS too) */
-.textarea{ --ta-min: 48px; --ta-max: 240px; } /* ≈ 10 lines */
+.textarea{ --ta-min: 48px; --ta-max: 240px; }
 
-/* Composer bar: same bg as chat area + shadow */
+/* ===== Composer container: TRANSPARENT (no dark bar) ===== */
 .composer{
   display:flex; gap:10px; align-items:flex-end;
-  padding:12px;
-  background: var(--surface-2);
-  border-top:1px solid var(--border);
-  box-shadow: 0 -10px 24px rgba(0,0,0,.28);
+  padding: 10px 12px;
+  background: transparent !important;   /* kill the big dark block */
+  border-top: none !important;
+  box-shadow: none !important;
   position: sticky; bottom: 0; z-index: 60;
 }
 
-/* Textarea */
+/* Textarea: the only visible element, with soft shadow */
 .textarea{
   flex:1 1 auto;
   min-height: var(--ta-min);
@@ -27,12 +27,12 @@
   padding:12px 14px;
   border-radius:14px;
   border:1px solid var(--border);
-  background: var(--surface);
+  background: var(--surface);           /* same as chat area */
   color: var(--text);
   resize:none; line-height:1.4;
-  box-shadow: var(--shadow-2);
+  box-shadow: 0 10px 26px rgba(0,0,0,.28); /* subtle 3D */
   outline:none;
-  transition: height .12s ease; /* snappy shrink/expand */
+  transition: height .12s ease;
 }
 
 /* Thread bottom spacing so last msg isn't covered */
@@ -41,20 +41,18 @@
 /* Controls */
 .controls{ display:flex; gap:10px; align-items:center; }
 
-/* ===== Send button: blue circle + red triangle ===== */
+/* ===== Send button: blue circle + WHITE triangle ===== */
 .send-pill{
   appearance:none; border:none; background:transparent;
   padding:0; line-height:0; cursor:pointer;
   width:46px; height:46px;
 }
 .send-pill svg{ width:46px; height:46px; display:block; }
-.pill-bg{ fill: var(--primary); }            /* blue circle */
-.pill-arrow{ fill: #FF3B30; }                /* solid red triangle */
-
-/* disabled (no text): dim both bg and arrow */
+.pill-bg{ fill: var(--primary); }              /* blue */
+.pill-arrow{ fill: #ffffff; }                  /* white triangle */
 .send-pill:disabled{ cursor:default; opacity:.55; }
 
-/* Cancel stays red (your existing style) */
+/* Cancel stays red */
 .action-btn.cancel{
   width:46px; height:46px; border-radius:999px;
   display:inline-flex; align-items:center; justify-content:center;

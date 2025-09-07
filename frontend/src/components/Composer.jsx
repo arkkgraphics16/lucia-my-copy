@@ -7,21 +7,19 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
   const taRef   = useRef(null)
   const [hasText, setHasText] = useState(Boolean(value?.trim()))
 
-  // Resize logic – shrinks when empty, grows with content
+  // Resize logic – grows with content, SHRINKS back to min when empty
   const resizeTA = useCallback(() => {
     const el = taRef.current
     if (!el) return
-
     const styles = getComputedStyle(el)
     const min = parseFloat(styles.getPropertyValue('--ta-min')) || 48
     const max = parseFloat(styles.getPropertyValue('--ta-max')) || 240
 
-    // iOS/Safari-friendly: measure with 'auto', then clamp
-    el.style.height = 'auto'
+    el.style.height = 'auto'                     // allow shrink
     const next = Math.max(min, Math.min(el.scrollHeight, max))
     el.style.height = next + 'px'
 
-    // If value is empty, hard-reset to minimum (guaranteed shrink)
+    // guarantee shrink when empty (iOS/Safari safe)
     if (!el.value.trim()) el.style.height = min + 'px'
   }, [])
 
@@ -43,7 +41,7 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
     return () => el.removeEventListener('input', onInput)
   }, [resizeTA])
 
-  // Also resize on any programmatic change (e.g. after send -> value === '')
+  // Also shrink on any programmatic value change (after send → '')
   useEffect(() => {
     const id = requestAnimationFrame(resizeTA)
     return () => cancelAnimationFrame(id)
@@ -106,7 +104,7 @@ export default function Composer({ value, setValue, onSend, onCancel, busy }) {
             title="Send"
             aria-label="Send"
           >
-            {/* Blue circle with solid red, right-pointing triangle */}
+            {/* Blue circle with WHITE right-pointing triangle */}
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="12" className="pill-bg" />
               <polygon points="9,7 9,17 17,12" className="pill-arrow" />
