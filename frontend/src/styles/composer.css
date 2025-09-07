@@ -1,68 +1,87 @@
 /* lucia-secure/frontend/src/styles/composer.css */
 
-/* Bottom composer: transparent backdrop, only the input has a shadow */
+/* Vars updated by JS */
+:root{
+  --composer-h: 72px;       /* actual pixel height of .composer-row */
+  --kb-safe: 0px;           /* visualViewport overlap */
+  --sidebar-width: 260px;   /* <-- set your desktop sidebar width here (override in global CSS if needed) */
+}
+
+/* Textarea sizing (also read in JS) */
+.textarea{ --ta-min: 48px; --ta-max: 240px; }
+
+/* ================== WRAPPER: NO PAINT ================== */
+/* Fixed, paintless, and non-interactive to avoid any “transparent block” */
 .composer{
   position: fixed;
+  left: 0; right: 0;
+  bottom: var(--kb-safe, 0px);
+  height: 0;               /* wrapper occupies no visible height */
+  pointer-events: none;    /* wrapper doesn’t catch taps */
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  z-index: 30;             /* ensure above thread/content */
+}
+
+/* The only visible row; positioned at the real bottom */
+.composer-row{
+  position: absolute;
+  left: 12px; right: 12px;                          /* mobile / narrow screens */
   bottom: max(12px, env(safe-area-inset-bottom));
-  left: 12px;             /* mobile/tablet overlay nav → full width */
-  right: 12px;
-  z-index: 30;            /* above thread, below sidebar drawer */
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  pointer-events: none;   /* let clicks pass except on children (set below) */
+  display: flex; gap: 10px; align-items: flex-end;
+  pointer-events: auto;     /* children are interactive */
 }
 
-/* When there’s a persistent sidebar (desktop), start AFTER the sidebar. 
-   If your sidebar width differs, set --sidebar-width on :root or .sidebar. */
+/* On desktop (persistent sidebar), start after the sidebar */
 @media (min-width: 1024px){
-  .composer{
-    left: calc(var(--sidebar-width, 260px) + 12px);
+  .composer-row{
+    left: calc(var(--sidebar-width) + 12px);
   }
 }
 
-/* Help “raise” the bar above the soft keyboard (iOS Safari) */
-@supports (height: env(keyboard-inset-height)){
-  .composer{
-    bottom: calc(12px + env(keyboard-inset-height));
-  }
-}
+/* Thread bottom spacing so last message isn’t covered */
+.thread{ padding-bottom: calc(var(--composer-h) + 12px); }
 
-/* The input area */
-.composer .textarea{
-  pointer-events: auto;
-  flex: 1;
-  background: var(--surface);               /* same as chat bg */
-  color: var(--text);
+/* ================== INPUT ================== */
+.textarea{
+  flex: 1 1 auto;
+  min-height: var(--ta-min);
+  max-height: var(--ta-max);
+  padding: 12px 14px;
+  border-radius: 14px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px 16px;
-  outline: none;
+  background: var(--surface);     /* same tone as chat area */
+  color: var(--text);
   resize: none;
-  min-height: 44px;                          /* compact default */
-  max-height: 33vh;
-  overflow-y: auto;
-  box-shadow: 0 12px 28px rgba(0,0,0,.28);   /* soft 3D shadow */
+  line-height: 1.4;
+  box-shadow: 0 10px 26px rgba(0,0,0,.28);  /* subtle 3D */
+  outline: none;
+  transition: height .12s ease;
 }
 
-/* Buttons block */
-.composer .actions{
-  pointer-events: auto;
-  display: flex; align-items: center; gap: 8px;
+/* ================== CONTROLS ================== */
+.controls{ display:flex; gap:10px; align-items:center; }
+
+/* Squircle send button (blue bg + white right triangle) */
+.send-pill{
+  appearance:none; border:none; background:transparent;
+  padding:0; line-height:0; cursor:pointer;
+  width:48px; height:42px; /* matches SVG viewBox */
+}
+.send-pill svg{ width:48px; height:42px; display:block; }
+.pill-bg{ fill: var(--primary); }     /* blue background */
+.pill-arrow{ fill: #fff; }            /* white triangle */
+.send-pill:disabled{ cursor:default; opacity:.55; }
+
+/* Cancel stays red */
+.action-btn.cancel{
+  width:46px; height:46px; border-radius:999px;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid transparent; background: var(--core); box-shadow: var(--shadow-1);
 }
 
-/* Send / Cancel buttons */
-.action-btn{
-  width: 56px; height: 56px;
-  border: 0; border-radius: 999px;
-  display: inline-flex; align-items: center; justify-content: center;
-  box-shadow: 0 10px 24px rgba(0,0,0,.25);
-}
-.action-btn.send{ background: var(--primary); }
-.action-btn.send:disabled{ opacity: .45; cursor: not-allowed; }
-.action-btn.cancel{ background: #ef4444; }
-
-/* Make the white arrow look clean */
-.action-btn.send svg{
-  width: 28px; height: 28px;
+/* Mobile still tracks keyboard safely (wrapper is fixed) */
+@media (max-width:768px){
+  .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
 }

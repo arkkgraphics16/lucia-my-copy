@@ -13,7 +13,6 @@ import {
 import "../styles/limit.css"
 import "../styles/typing.css"
 import "../styles/thread-loading.css"
-import "../styles/composer.css"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
