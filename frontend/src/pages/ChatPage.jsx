@@ -7,7 +7,7 @@ import { useAuthToken } from "../hooks/useAuthToken"
 import {
   auth, googleProvider, signInWithPopup,
   ensureUser, getUserData,
-  createConversation, // still used when user types first, no cid yet
+  createConversation,
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
 } from "../firebase"
 import "../styles/limit.css"
@@ -27,7 +27,7 @@ export default function ChatPage() {
   const [system] = useState(DEFAULT_SYSTEM)
   const [loadingThread, setLoadingThread] = useState(false)
 
-  // conversationId in STATE (not memo). Seed from URL.
+  // conversationId in state (seed from URL)
   const [conversationId, setConversationId] = useState(() => {
     return new URLSearchParams(window.location.search).get("c") || null
   })
@@ -37,19 +37,19 @@ export default function ChatPage() {
     return off
   }, [])
 
-  // Switch without reload (from Sidebar)
+  // Switch without reload (from Sidebar + back/forward)
   useEffect(() => {
     const onSwitch = (e) => {
       const cid = e.detail?.cid
       if (!cid) return
-      setLoadingThread(true)
       setMsgs([])
+      setLoadingThread(true)
       setConversationId(cid)
     }
     const onPop = () => {
       const cid = new URLSearchParams(window.location.search).get("c") || null
-      setLoadingThread(true)
       setMsgs([])
+      setLoadingThread(true)
       setConversationId(cid)
     }
     window.addEventListener('lucia:switch-chat', onSwitch)
@@ -60,7 +60,7 @@ export default function ChatPage() {
     }
   }, [])
 
-  // Bind message stream to (uid, conversationId)
+  // Bind messages to (uid, conversationId)
   useEffect(() => {
     if (!conversationId || !user?.uid) return
     setLoadingThread(true)

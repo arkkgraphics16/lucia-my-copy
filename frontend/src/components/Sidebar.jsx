@@ -1,65 +1,77 @@
-// lucia-secure/frontend/src/components/Sidebar.jsx (instant new chat)
+// lucia-secure/frontend/src/components/Sidebar.jsx
+
 import React, { useEffect, useState } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
 import {
   auth, googleProvider, signInWithPopup, signOut,
-  db,
+  createConversation, db,
+  // NEW helpers for instant create:
   newConversationId, createConversationWithId
 } from '../firebase'
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import '../styles/slots.css'     // keeps skeleton + one-per-line
+import '../styles/sidebar.css'   // unified sidebar style
 
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuthToken()
   const [menuOpen, setMenuOpen] = useState(false)
   const [convos, setConvos] = useState([])
+  const [loadingConvos, setLoadingConvos] = useState(false)
 
-  // Quick prompts
   const firstPrompt = "I don’t even know what I’ve gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
   const email = user?.email || ''
+  const currentCid = new URLSearchParams(window.location.search).get('c') || null
 
-  // Live conversations
   useEffect(() => {
     if (!user?.uid) return
-    const qy = query(
+    setConvos([])
+    setLoadingConvos(true)
+
+    const q = query(
       collection(db, 'users', user.uid, 'conversations'),
       orderBy('updatedAt', 'desc')
     )
-    const unsub = onSnapshot(qy, (snap) => {
-      setConvos(s => {
-        const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        // keep any optimistic item if Firestore hasn't delivered it yet
-        const optimistic = s.filter(x => x.__optimistic && !arr.find(y => y.id === x.id))
-        return [...optimistic, ...arr]
+    const unsub = onSnapshot(q, (snap) => {
+      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      // filter out brand new "New chat" that hasn't received a first msg yet
+      const list = rows.filter(c => {
+        const tNew = (c.title || '').toLowerCase() === 'new chat'
+        const upd = c.updatedAt?.toMillis?.() ?? 0
+        const crt = c.createdAt?.toMillis?.() ?? 0
+        return !tNew || upd > crt
       })
-    })
+      setConvos(prev => {
+        // preserve any optimistic entries that aren't in server yet
+        const optimistic = prev.filter(x => x.__optimistic && !list.find(y => y.id === x.id))
+        return [...optimistic, ...list]
+      })
+      setLoadingConvos(false)
+    }, () => setLoadingConvos(false))
+
     return () => unsub()
   }, [user?.uid])
 
-  function switchToConversation(cid) {
-    const url = new URL(window.location.href)
-    url.searchParams.set('c', cid)
-    window.history.pushState({}, '', url)
-    // notify ChatPage (no reload)
-    window.dispatchEvent(new CustomEvent('lucia:switch-chat', { detail: { cid } }))
-  }
-
+  // ----- Instant, optimistic New Chat (no reload) -----
   async function handleNewChat() {
     if (!auth.currentUser) await signInWithPopup(auth, googleProvider)
     const uid = (auth.currentUser || user).uid
 
-    // 1) make an ID instantly
+    // 1) get id instantly
     const cid = newConversationId(uid)
 
-    // 2) optimistic row at top
-    setConvos(prev => [{ id: cid, title: 'New chat', updatedAt: new Date(), __optimistic: true }, ...prev])
+    // 2) optimistic chip at top (keep your markup/classes)
+    setConvos(prev => [{ id: cid, title: 'New chat', __optimistic: true }, ...prev])
 
-    // 3) switch immediately and close sidebar
-    switchToConversation(cid)
+    // 3) update URL & notify ChatPage (no reload)
+    const url = new URL(window.location.href)
+    url.searchParams.set('c', cid)
+    window.history.pushState({}, '', url)
+    window.dispatchEvent(new CustomEvent('lucia:switch-chat', { detail: { cid } }))
     onClose?.()
 
     // 4) write in background
@@ -67,14 +79,17 @@ export default function Sidebar({ open, onClose }) {
       await createConversationWithId(uid, cid, { title: 'New chat', system: '' })
     } catch (err) {
       console.error('createConversationWithId failed', err)
-      // rollback: remove optimistic row and bounce back (optional)
-      setConvos(prev => prev.filter(c => c.id !== cid))
-      window.dispatchEvent(new CustomEvent('lucia:switch-chat-failed', { detail: { cid } }))
+      // rollback optimistic chip if failure
+      setConvos(prev => prev.filter(x => x.id !== cid))
     }
   }
 
+  // ----- Switch chat instantly (no reload) -----
   function openConversation(cid) {
-    switchToConversation(cid)
+    const url = new URL(window.location.href)
+    url.searchParams.set('c', cid)
+    window.history.pushState({}, '', url)
+    window.dispatchEvent(new CustomEvent('lucia:switch-chat', { detail: { cid } }))
     onClose?.()
   }
 
@@ -95,20 +110,29 @@ export default function Sidebar({ open, onClose }) {
             <div className="chips-wrap">
               <span className="chip" onClick={() => signInWithPopup(auth, googleProvider)}>Log in to see chats</span>
             </div>
+          ) : loadingConvos ? (
+            <div className="slots-skeleton">
+              <div className="slot-row"></div>
+              <div className="slot-row"></div>
+              <div className="slot-row"></div>
+            </div>
           ) : (
-            <div className="chips-wrap slots-grid">
+            <div className="slots-list">
               {convos.length === 0 ? (
-                <span className="chip" onClick={handleNewChat}>No chats yet — create one</span>
+                <button className="chip slot-btn" onClick={handleNewChat}>
+                  No chats yet — create one
+                </button>
               ) : (
-                convos.map((c) => (
-                  <span
+                convos.map(c => (
+                  <button
                     key={c.id}
-                    className={`chip slot ${c.__optimistic ? 'loading' : ''}`}
+                    className={`chip slot-btn${c.__optimistic ? ' loading' : ''}`}
+                    aria-current={currentCid === c.id ? 'page' : undefined}
                     onClick={() => openConversation(c.id)}
                     title={c.title || 'Untitled'}
                   >
                     {c.__optimistic ? 'Creating…' : (c.title || 'Untitled')}
-                  </span>
+                  </button>
                 ))
               )}
             </div>
@@ -117,10 +141,7 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="sidebar-bottom">
           {!user ? (
-            <button
-              className="user-footer login"
-              onClick={() => signInWithPopup(auth, googleProvider)}
-            >
+            <button className="user-footer login" onClick={() => signInWithPopup(auth, googleProvider)}>
               Log in
             </button>
           ) : (
