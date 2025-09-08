@@ -31,6 +31,7 @@ async function ensureUser(uid) {
     await setDoc(ref, {
       tier: 'free',
       exchanges_used: 0,
+      courtesy_used: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -90,11 +91,31 @@ async function bumpUpdatedAt(uid, cid) {
   });
 }
 
+// Updated to support courtesy bonus logic
 async function incrementExchanges(uid) {
-  await updateDoc(doc(db, 'users', uid), {
-    exchanges_used: increment(1),
-    updatedAt: serverTimestamp()
-  });
+  const ref = doc(db, 'users', uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  const used = data.exchanges_used || 0;
+  const courtesy = data.courtesy_used || false;
+  const update = { updatedAt: serverTimestamp() };
+
+  if (data.tier === 'pro') {
+    update.exchanges_used = increment(1);
+  } else {
+    if (used < 10) {
+      update.exchanges_used = increment(1);
+    } else if (used === 10 && !courtesy) {
+      update.exchanges_used = increment(1);
+      update.courtesy_used = true;
+    } else if (courtesy && used < 12) {
+      update.exchanges_used = increment(1);
+    }
+  }
+
+  await updateDoc(ref, update);
 }
 
 async function setConversationTitle(uid, cid, title) {
@@ -108,7 +129,7 @@ export {
   db,
   ensureUser, getUserData,
   createConversation,
-  newConversationId, createConversationWithId,       // <-- export new helpers
+  newConversationId, createConversationWithId,
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges,
   setConversationTitle
 };

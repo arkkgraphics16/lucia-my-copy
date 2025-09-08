@@ -24,10 +24,10 @@ export default function ChatPage() {
   const [text, setText] = useState("")
   const [busy, setBusy] = useState(false)
   const [capHit, setCapHit] = useState(false)
+  const [remaining, setRemaining] = useState(null)
   const [system] = useState(DEFAULT_SYSTEM)
   const [loadingThread, setLoadingThread] = useState(false)
 
-  // conversationId in state (seed from URL)
   const [conversationId, setConversationId] = useState(() => {
     return new URLSearchParams(window.location.search).get("c") || null
   })
@@ -37,7 +37,6 @@ export default function ChatPage() {
     return off
   }, [])
 
-  // Switch without reload (from Sidebar + back/forward)
   useEffect(() => {
     const onSwitch = (e) => {
       const cid = e.detail?.cid
@@ -60,7 +59,6 @@ export default function ChatPage() {
     }
   }, [])
 
-  // Bind messages to (uid, conversationId)
   useEffect(() => {
     if (!conversationId || !user?.uid) return
     setLoadingThread(true)
@@ -70,11 +68,6 @@ export default function ChatPage() {
     })
     return () => { setLoadingThread(true); unsub && unsub() }
   }, [conversationId, user?.uid])
-
-  function buildWorkerMessages(withUserText) {
-    const base = msgs.map(m => ({ role: m.role, content: m.content }))
-    return withUserText ? [...base, { role: "user", content: withUserText }] : base
-  }
 
   async function ensureLogin() {
     if (!auth.currentUser) await signInWithPopup(auth, googleProvider)
@@ -93,7 +86,6 @@ export default function ChatPage() {
       const uid = await ensureLogin()
 
       let cid = conversationId
-      // If user typed before creating a chat via sidebar, create it here
       if (!cid) {
         const title = content.slice(0, 48)
         cid = await createConversation(uid, title, "")
@@ -107,8 +99,20 @@ export default function ChatPage() {
 
       const profile = await getUserData(uid)
       const used = profile?.exchanges_used ?? 0
+      const courtesy = profile?.courtesy_used ?? false
       const isPro = profile?.tier === "pro"
-      if (!isPro && used >= 10) {
+
+      let left = null
+      if (!isPro) {
+        if (!courtesy) {
+          left = Math.max(0, 10 - used)
+        } else {
+          left = Math.max(0, 12 - used)
+        }
+      }
+      setRemaining(left)
+
+      if (!isPro && left <= 0) {
         setCapHit(true)
         setBusy(false)
         return
@@ -116,7 +120,9 @@ export default function ChatPage() {
 
       await addMessage(uid, cid, "user", content)
 
-      const workerMessages = buildWorkerMessages(content)
+      const workerMessages = msgs.map(m => ({ role: m.role, content: m.content }))
+      workerMessages.push({ role: "user", content })
+
       const res = await fetch(WORKER_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -139,7 +145,13 @@ export default function ChatPage() {
 
       if (!isPro) {
         await incrementExchanges(uid)
-        if (used + 1 >= 10) setCapHit(true)
+        const updated = await getUserData(uid)
+        const newUsed = updated?.exchanges_used ?? used
+        const newCourtesy = updated?.courtesy_used ?? courtesy
+        setRemaining(!newCourtesy ? 10 - newUsed : 12 - newUsed)
+        if ((!newCourtesy && newUsed >= 10) || (newCourtesy && newUsed >= 12)) {
+          setCapHit(true)
+        }
       }
     } catch (err) {
       console.error(err)
@@ -155,8 +167,8 @@ export default function ChatPage() {
       {capHit && (
         <div className="limit-banner">
           <div>
-            <div className="title">Free Tier Limit reached</div>
-            <div className="desc">Upgrade to unlock full potential.</div>
+            <div className="title">Free messages finished</div>
+            <div className="desc">Upgrade to keep chatting with Lucía.</div>
           </div>
           <button className="act" type="button" disabled>Upgrade</button>
         </div>
@@ -180,7 +192,7 @@ export default function ChatPage() {
             ))}
             {busy && (
               <MessageBubble role="assistant">
-                <span className="typing"><span></span><span></span><span></span></span>
+                Lucía is listening…
               </MessageBubble>
             )}
           </>
@@ -188,6 +200,12 @@ export default function ChatPage() {
       </div>
 
       <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
+      {remaining !== null && !capHit && (
+        <div className="remaining-indicator"
+             style={{ color: remaining > 2 ? 'blue' : (remaining > 0 ? 'green' : 'red') }}>
+          {remaining} message{remaining === 1 ? '' : 's'} left
+        </div>
+      )}
     </>
   )
 }
