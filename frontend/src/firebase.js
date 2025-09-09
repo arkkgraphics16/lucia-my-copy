@@ -88,6 +88,7 @@ async function bumpUpdatedAt(uid, cid) {
   });
 }
 
+// Free 10 + courtesy +2 (server-guarded by rules you’ll paste)
 async function incrementExchanges(uid) {
   const ref = doc(db, 'users', uid);
   const snap = await getDoc(ref);
@@ -120,11 +121,20 @@ async function setConversationTitle(uid, cid, title) {
   });
 }
 
-// New helper: soft delete a conversation
+// Soft delete a conversation (hide from UI)
 async function softDeleteConversation(uid, cid) {
   const ref = doc(db, 'users', uid, 'conversations', cid);
   await updateDoc(ref, {
     deletedAt: serverTimestamp()
+  });
+}
+
+// Assign/remove folder on a conversation
+async function setConversationFolder(uid, cid, folder) {
+  const ref = doc(db, 'users', uid, 'conversations', cid);
+  await updateDoc(ref, {
+    folder: folder || null,
+    updatedAt: serverTimestamp()
   });
 }
 
@@ -135,5 +145,5 @@ export {
   createConversation,
   newConversationId, createConversationWithId,
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges,
-  setConversationTitle, softDeleteConversation
+  setConversationTitle, softDeleteConversation, setConversationFolder
 };
