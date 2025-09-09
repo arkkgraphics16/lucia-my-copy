@@ -13,6 +13,7 @@ import {
 import "../styles/limit.css"
 import "../styles/typing.css"
 import "../styles/thread-loading.css"
+import "../styles/usage-indicator.css"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
@@ -192,7 +193,7 @@ export default function ChatPage() {
             ))}
             {busy && (
               <MessageBubble role="assistant">
-                Lucía is listening…
+                <span className="typing"><span></span><span></span><span></span></span>
               </MessageBubble>
             )}
           </>
@@ -200,21 +201,21 @@ export default function ChatPage() {
       </div>
 
       <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
-        {remaining !== null && !capHit && (
-          <div
-            className={
-              "usage-indicator usage-indicator--sm " +
-              (remaining > 2
-                ? "usage-indicator--ok"
-                : remaining > 0
-                ? "usage-indicator--warn"
-                : "usage-indicator--bad")
-            }
-          >
-            <span className="usage-indicator__dot"></span>
-            <span className="usage-indicator__count">{remaining}</span>
-            <span className="usage-indicator__label">messages left</span>
-          </div>
+      {remaining !== null && !capHit && (
+        <div
+          className={
+            "usage-indicator usage-indicator--sm " +
+            (remaining > 2
+              ? "usage-indicator--ok"
+              : remaining > 0
+              ? "usage-indicator--warn"
+              : "usage-indicator--bad")
+          }
+        >
+          <span className="usage-indicator__dot"></span>
+          <span className="usage-indicator__count">{remaining}</span>
+          <span className="usage-indicator__label">messages left</span>
+        </div>
       )}
     </>
   )
