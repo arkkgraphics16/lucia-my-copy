@@ -44,7 +44,6 @@ async function getUserData(uid) {
   return snap.exists() ? snap.data() : null;
 }
 
-// Create (server-created id)
 async function createConversation(uid, title = 'New chat', system = '') {
   const ref = await addDoc(collection(db, 'users', uid, 'conversations'), {
     title, system, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
@@ -52,7 +51,6 @@ async function createConversation(uid, title = 'New chat', system = '') {
   return ref.id;
 }
 
-// ==== NEW: instant ID + write with specific ID (for optimistic UI) ====
 function newConversationId(uid) {
   return doc(collection(db, 'users', uid, 'conversations')).id;
 }
@@ -68,7 +66,6 @@ async function createConversationWithId(uid, id, init = {}) {
   return id;
 }
 
-// Stream messages
 function listenMessages(uid, cid, cb) {
   const q = query(
     collection(db, 'users', uid, 'conversations', cid, 'messages'),
@@ -91,7 +88,6 @@ async function bumpUpdatedAt(uid, cid) {
   });
 }
 
-// Updated to support courtesy bonus logic
 async function incrementExchanges(uid) {
   const ref = doc(db, 'users', uid);
   const snap = await getDoc(ref);
@@ -124,6 +120,14 @@ async function setConversationTitle(uid, cid, title) {
   });
 }
 
+// New helper: soft delete a conversation
+async function softDeleteConversation(uid, cid) {
+  const ref = doc(db, 'users', uid, 'conversations', cid);
+  await updateDoc(ref, {
+    deletedAt: serverTimestamp()
+  });
+}
+
 export {
   app, auth, googleProvider, signInWithPopup, signOut, onIdTokenChanged,
   db,
@@ -131,5 +135,5 @@ export {
   createConversation,
   newConversationId, createConversationWithId,
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges,
-  setConversationTitle
+  setConversationTitle, softDeleteConversation
 };

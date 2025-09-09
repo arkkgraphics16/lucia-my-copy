@@ -200,11 +200,21 @@ export default function ChatPage() {
       </div>
 
       <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
-      {remaining !== null && !capHit && (
-        <div className="remaining-indicator"
-             style={{ color: remaining > 2 ? 'blue' : (remaining > 0 ? 'green' : 'red') }}>
-          {remaining} message{remaining === 1 ? '' : 's'} left
-        </div>
+        {remaining !== null && !capHit && (
+          <div
+            className={
+              "usage-indicator usage-indicator--sm " +
+              (remaining > 2
+                ? "usage-indicator--ok"
+                : remaining > 0
+                ? "usage-indicator--warn"
+                : "usage-indicator--bad")
+            }
+          >
+            <span className="usage-indicator__dot"></span>
+            <span className="usage-indicator__count">{remaining}</span>
+            <span className="usage-indicator__label">messages left</span>
+          </div>
       )}
     </>
   )

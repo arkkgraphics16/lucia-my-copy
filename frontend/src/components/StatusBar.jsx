@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuthToken } from '../hooks/useAuthToken'
 import { getUserData } from '../firebase'
+import "../styles/usage-indicator.css"   // add this
 
 export default function StatusBar(){
   const { user } = useAuthToken()
@@ -32,13 +33,13 @@ export default function StatusBar(){
     })
   }, [user?.uid])
 
-  let color = 'red'
+  let state = "usage-indicator--bad"
   if (remaining === null) {
-    color = '#19C37D'
+    state = "usage-indicator--ok" // pro = unlimited
   } else if (remaining > 2) {
-    color = 'blue'
+    state = "usage-indicator--ok"
   } else if (remaining > 0) {
-    color = 'green'
+    state = "usage-indicator--warn"
   }
 
   return (
@@ -49,7 +50,11 @@ export default function StatusBar(){
       {remaining !== null && (
         <>
           <span style={{marginLeft:12}}/>
-          <span style={{color}}>{remaining} left</span>
+          <div className={`usage-indicator usage-indicator--sm ${state}`}>
+            <span className="usage-indicator__dot"></span>
+            <span className="usage-indicator__count">{remaining}</span>
+            <span className="usage-indicator__label">left</span>
+          </div>
         </>
       )}
     </div>

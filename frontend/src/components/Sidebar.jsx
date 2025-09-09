@@ -1,17 +1,16 @@
 // lucia-secure/frontend/src/components/Sidebar.jsx
-
 import React, { useEffect, useState } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
 import {
   auth, googleProvider, signInWithPopup, signOut,
   createConversation, db,
-  // NEW helpers for instant create:
-  newConversationId, createConversationWithId
+  newConversationId, createConversationWithId,
+  softDeleteConversation
 } from '../firebase'
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
-import '../styles/slots.css'     // keeps skeleton + one-per-line
-import '../styles/sidebar.css'   // unified sidebar style
+import '../styles/slots.css'
+import '../styles/sidebar.css'
 
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuthToken()
@@ -38,15 +37,14 @@ export default function Sidebar({ open, onClose }) {
     )
     const unsub = onSnapshot(q, (snap) => {
       const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      // filter out brand new "New chat" that hasn't received a first msg yet
       const list = rows.filter(c => {
         const tNew = (c.title || '').toLowerCase() === 'new chat'
         const upd = c.updatedAt?.toMillis?.() ?? 0
         const crt = c.createdAt?.toMillis?.() ?? 0
-        return !tNew || upd > crt
+        const deleted = Boolean(c.deletedAt)
+        return (!tNew || upd > crt) && !deleted
       })
       setConvos(prev => {
-        // preserve any optimistic entries that aren't in server yet
         const optimistic = prev.filter(x => x.__optimistic && !list.find(y => y.id === x.id))
         return [...optimistic, ...list]
       })
@@ -56,41 +54,38 @@ export default function Sidebar({ open, onClose }) {
     return () => unsub()
   }, [user?.uid])
 
-  // ----- Instant, optimistic New Chat (no reload) -----
   async function handleNewChat() {
     if (!auth.currentUser) await signInWithPopup(auth, googleProvider)
     const uid = (auth.currentUser || user).uid
 
-    // 1) get id instantly
     const cid = newConversationId(uid)
-
-    // 2) optimistic chip at top (keep your markup/classes)
     setConvos(prev => [{ id: cid, title: 'New chat', __optimistic: true }, ...prev])
 
-    // 3) update URL & notify ChatPage (no reload)
     const url = new URL(window.location.href)
     url.searchParams.set('c', cid)
     window.history.pushState({}, '', url)
     window.dispatchEvent(new CustomEvent('lucia:switch-chat', { detail: { cid } }))
     onClose?.()
 
-    // 4) write in background
     try {
       await createConversationWithId(uid, cid, { title: 'New chat', system: '' })
     } catch (err) {
       console.error('createConversationWithId failed', err)
-      // rollback optimistic chip if failure
       setConvos(prev => prev.filter(x => x.id !== cid))
     }
   }
 
-  // ----- Switch chat instantly (no reload) -----
   function openConversation(cid) {
     const url = new URL(window.location.href)
     url.searchParams.set('c', cid)
     window.history.pushState({}, '', url)
     window.dispatchEvent(new CustomEvent('lucia:switch-chat', { detail: { cid } }))
     onClose?.()
+  }
+
+  async function handleDeleteChat(cid) {
+    if (!user?.uid) return
+    await softDeleteConversation(user.uid, cid)
   }
 
   return (
@@ -124,15 +119,25 @@ export default function Sidebar({ open, onClose }) {
                 </button>
               ) : (
                 convos.map(c => (
-                  <button
-                    key={c.id}
-                    className={`chip slot-btn${c.__optimistic ? ' loading' : ''}`}
-                    aria-current={currentCid === c.id ? 'page' : undefined}
-                    onClick={() => openConversation(c.id)}
-                    title={c.title || 'Untitled'}
-                  >
-                    {c.__optimistic ? 'Creating…' : (c.title || 'Untitled')}
-                  </button>
+                  <div key={c.id} className="slot-row-wrapper" style={{ display: 'flex', alignItems: 'center' }}>
+                    <button
+                      className={`chip slot-btn${c.__optimistic ? ' loading' : ''}`}
+                      aria-current={currentCid === c.id ? 'page' : undefined}
+                      onClick={() => openConversation(c.id)}
+                      title={c.title || 'Untitled'}
+                      style={{ flexGrow: 1 }}
+                    >
+                      {c.__optimistic ? 'Creating…' : (c.title || 'Untitled')}
+                    </button>
+                    <button
+                      className="chip slot-btn"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteChat(c.id) }}
+                      title="Delete chat"
+                      style={{ marginLeft: 6, background: 'var(--core)', color: '#fff' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))
               )}
             </div>

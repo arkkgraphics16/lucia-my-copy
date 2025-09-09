@@ -1,0 +1,67 @@
+/* lucia-secure/frontend/src/styles/usage-indicator.css
+   Usage counter colors follow your app theme:
+   - OK  : >10 left  → green
+   - WARN: 1–10 left → primary blue
+   - BAD : 0 left    → core red
+   Relies on existing CSS vars from app.css (e.g., --primary, --core). */
+
+/* Base */
+.usage-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border, rgba(255,255,255,.08));
+  background: var(--surface-2, #131f30);
+  border-radius: 999px;
+  box-shadow: var(--shadow-1, 0 2px 8px rgba(0,0,0,.15));
+  font: 600 12px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial;
+  color: var(--text, #e6f1ff);
+}
+
+/* Status dot */
+.usage-indicator__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 10px currentColor;
+}
+
+/* Count badge */
+.usage-indicator__count {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border, rgba(255,255,255,.08));
+  min-width: 28px;
+  text-align: center;
+}
+
+/* Labels (optional) */
+.usage-indicator__label {
+  color: var(--muted, #8b9ab5);
+  font-weight: 600;
+}
+
+/* States */
+/* OK: green */
+.usage-indicator--ok .usage-indicator__dot { color: #20d37a; }
+/* WARN: follow your animated icon blue = --primary */
+.usage-indicator--warn .usage-indicator__dot { color: var(--primary, #00c2ff); }
+/* BAD: follow your animated icon red = --core */
+.usage-indicator--bad .usage-indicator__dot { color: var(--core, #ff4757); }
+
+/* Optional subtle ring per state */
+.usage-indicator--ok  { border-color: rgba(32,211,122,.35); }
+.usage-indicator--warn{ border-color: color-mix(in oklab, var(--primary, #00c2ff) 35%, transparent); }
+.usage-indicator--bad { border-color: color-mix(in oklab, var(--core, #ff4757) 45%, transparent); }
+
+/* Compact variant */
+.usage-indicator--sm { padding: 4px 8px; gap: 6px; }
+.usage-indicator--sm .usage-indicator__count { min-width: 24px; padding: 1px 6px; }
+
+/* High-contrast fallback if CSS variables are missing */
+@supports not (color: color-mix(in oklab, #000 50%, #fff 50%)) {
+  .usage-indicator--warn { border-color: rgba(0,194,255,.35); }
+  .usage-indicator--bad  { border-color: rgba(255,71,87,.45); }
+}
