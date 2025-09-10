@@ -1,5 +1,5 @@
 // lucia-secure/frontend/src/components/LoginForm.jsx
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useState } from "react"
 import {
   auth,
   loginWithEmail,
@@ -11,45 +11,29 @@ import {
 import {
   fetchSignInMethodsForEmail,
   sendPasswordResetEmail,
-  sendEmailVerification,
-  sendSignInLinkToEmail
+  sendEmailVerification
 } from "firebase/auth"
 import AddPassword from "./AddPassword"
 
-/**
- * HARD-SET the return URL to the production origin.
- * This MUST be listed in Firebase → Authentication → Settings → Authorized domains.
- * If you also use "www", add BOTH "luciadecode.com" and "www.luciadecode.com".
- */
-const ACTION_URL = "https://luciadecode.com/";
+// Verification return URL (must be authorized in Firebase)
+const ACTION_URL = "https://luciadecode.com/"
 
 const actionCodeSettings = {
   url: ACTION_URL,
-  handleCodeInApp: true,
+  handleCodeInApp: true
 }
 
 export default function LoginForm({ onClose, onLogin }) {
-  // Tabs: Email/Password vs Email Link (passwordless)
-  const [tab, setTab] = useState("email") // "email" | "link"
-
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [hint, setHint] = useState("")
 
-  // Email/Password state
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [methods, setMethods] = useState([])
 
-  // Email Link state
-  const [linkEmail, setLinkEmail] = useState("")
-
-  // Show the exact continue URL we send to Firebase (helps match Authorized domains)
-  const debugReturn = useMemo(() => ACTION_URL, [])
-
   // Only check providers for well-formed emails (prevents createAuthUri spam)
   useEffect(() => {
-    if (tab !== "email") return
     const trimmed = (email || "").trim()
     const isLikelyEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
     if (!isLikelyEmail) {
@@ -66,9 +50,8 @@ export default function LoginForm({ onClose, onLogin }) {
       }
     })()
     return () => { alive = false }
-  }, [tab, email])
+  }, [email])
 
-  // ---- EMAIL + PASSWORD ----
   async function handleEmailLogin(e) {
     e.preventDefault()
     setLoading(true); setError(""); setHint("")
@@ -82,6 +65,7 @@ export default function LoginForm({ onClose, onLogin }) {
       let providerMethods = []
       try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
 
+      // If this email used Google previously and has no password yet
       if (providerMethods.includes("google.com") && !providerMethods.includes("password")) {
         setError("This email is registered with Google.")
         setHint("Tap “Continue with Google”, then add a password if you want email login.")
@@ -107,10 +91,11 @@ export default function LoginForm({ onClose, onLogin }) {
         }
       }
 
+      // If newly registered, send a verification email once
       if (registeredJustNow && auth.currentUser && !auth.currentUser.emailVerified) {
         try {
           await sendEmailVerification(auth.currentUser, actionCodeSettings)
-          setHint("Verification email sent. Please check your inbox and confirm.")
+          setHint("Verification email sent. Please check your inbox (or Spam/Promotions) and confirm.")
         } catch (e) {
           console.warn("sendEmailVerification failed:", e)
         }
@@ -164,132 +149,65 @@ export default function LoginForm({ onClose, onLogin }) {
   }
 
   const showAddPassword =
-    tab === "email" &&
     auth.currentUser?.email &&
     methods.length === 1 &&
     methods[0] === "google.com" &&
     auth.currentUser.email === (email || "").trim()
-
-  // ---- EMAIL LINK (PASSWORDLESS) ----
-  async function handleEmailLink(e) {
-    e.preventDefault()
-    setLoading(true); setError(""); setHint("")
-    try {
-      const trimmed = (linkEmail || "").trim()
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-        setError("Enter a valid email address.")
-        return
-      }
-      // Store for completion step on return
-      localStorage.setItem("lucia-emailForSignIn", trimmed)
-      await sendSignInLinkToEmail(auth, trimmed, actionCodeSettings)
-      setHint(`Magic link sent to ${trimmed}. Open it on this device to finish sign-in.`)
-    } catch (err) {
-      setError("Failed to send link.")
-      setHint(err?.message || "")
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="login-overlay" role="dialog" aria-modal="true">
       <div className="login-modal">
         <button className="close-btn" onClick={onClose} aria-label="Close">✕</button>
 
-        {/* Tabs */}
-        <div className="tabs" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <button
-            className={`tab ${tab === "email" ? "active" : ""}`}
-            onClick={() => { setTab("email"); setError(""); setHint(""); }}
-          >
-            Email / Password
+        <h2>Log in</h2>
+
+        <form onSubmit={handleEmailLogin}>
+          <input
+            type="email"
+            placeholder="Email (e.g., you@example.com)"
+            value={email}
+            onChange={e=>setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e=>setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
+          <button type="submit" disabled={loading}>
+            {loading ? "Loading..." : "Login / Register"}
           </button>
-          <button
-            className={`tab ${tab === "link" ? "active" : ""}`}
-            onClick={() => { setTab("link"); setError(""); setHint(""); }}
-          >
-            Email Link
-          </button>
-        </div>
+        </form>
 
-        {tab === "email" ? (
-          <>
-            <h2>Log in</h2>
-            <form onSubmit={handleEmailLogin}>
-              <input
-                type="email"
-                placeholder="Email (e.g., you@example.com)"
-                value={email}
-                onChange={e=>setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={e=>setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-              <button type="submit" disabled={loading}>
-                {loading ? "Loading..." : "Login / Register"}
-              </button>
-            </form>
+        <button
+          onClick={handleResetPassword}
+          disabled={loading}
+          style={{
+            width:"100%", marginTop:8, marginBottom:8, padding:8,
+            border:"1px solid var(--border)", background:"transparent",
+            color:"var(--text)", borderRadius:"var(--radius-2)", cursor:"pointer"
+          }}
+        >
+          Reset password
+        </button>
 
-            <button
-              onClick={handleResetPassword}
-              disabled={loading}
-              style={{
-                width:"100%", marginTop:8, marginBottom:8, padding:8,
-                border:"1px solid var(--border)", background:"transparent",
-                color:"var(--text)", borderRadius:"var(--radius-2)", cursor:"pointer"
-              }}
-            >
-              Reset password
-            </button>
-
-            {showAddPassword && (
-              <div style={{ marginTop: 12 }}>
-                <p style={{ fontSize: 14, opacity: 0.8 }}>
-                  You’re signed in with Google. Add a password to also log in with email/password:
-                </p>
-                <AddPassword onDone={() => setHint("Password added successfully.")} />
-              </div>
-            )}
-
-            <div className="divider">or</div>
-            <button className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
-              Continue with Google
-            </button>
-          </>
-        ) : (
-          <>
-            <h2>Log in with Email Link</h2>
-            <p style={{ fontSize: 13, opacity: 0.8, marginTop: -4, marginBottom: 8 }}>
-              We’ll email you a one-time sign-in link. No password required.
+        {showAddPassword && (
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontSize: 14, opacity: 0.8 }}>
+              You’re signed in with Google. Add a password to also log in with email/password:
             </p>
-            <form onSubmit={handleEmailLink}>
-              <input
-                type="email"
-                placeholder="Email (e.g., you@example.com)"
-                value={linkEmail}
-                onChange={e=>setLinkEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-              <button type="submit" disabled={loading}>
-                {loading ? "Sending..." : "Send link"}
-              </button>
-            </form>
-
-            {/* Debug line so you can match Firebase Authorized domains EXACTLY */}
-            <div style={{marginTop:8, fontSize:12, opacity:.6}}>
-              Return URL: <code>{debugReturn}</code>
-            </div>
-          </>
+            <AddPassword onDone={() => setHint("Password added successfully.")} />
+          </div>
         )}
+
+        <div className="divider">or</div>
+        <button className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
+          Continue with Google
+        </button>
 
         {(error || hint) && (
           <div className="error" style={{marginTop:10}}>

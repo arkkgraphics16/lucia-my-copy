@@ -11,13 +11,13 @@ import {
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
 } from "../firebase"
 import LoginForm from "../components/LoginForm"
+import EmailVerifyBanner from "../components/EmailVerifyBanner"
 import "../styles/limit.css"
 import "../styles/typing.css"
 import "../styles/thread-loading.css"
 import "../styles/usage-indicator.css"
 import "../styles/chat-layout.css"
 import "../styles/login.css"
-import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
@@ -41,34 +41,6 @@ export default function ChatPage() {
   useEffect(() => {
     const off = onQuickPrompt((t) => setText(String(t || "")))
     return off
-  }, [])
-
-  // Complete Email Link sign-in if URL contains an OOB code
-  useEffect(() => {
-    (async () => {
-      try {
-        if (isSignInWithEmailLink(auth, window.location.href)) {
-          let email = window.localStorage.getItem("lucia-emailForSignIn") || ""
-          if (!email) {
-            // Fallback: ask the user if storage not available (edge case)
-            email = window.prompt("Confirm your email for sign-in")
-          }
-          if (!email) return
-          await signInWithEmailLink(auth, email, window.location.href)
-          window.localStorage.removeItem("lucia-emailForSignIn")
-          await ensureUser(auth.currentUser.uid)
-          setShowLogin(false)
-          // Clean URL (remove OOB params)
-          const clean = new URL(window.location.origin + window.location.pathname + window.location.search)
-          clean.searchParams.delete("oobCode")
-          clean.searchParams.delete("mode")
-          clean.searchParams.delete("apiKey")
-          window.history.replaceState({}, "", clean)
-        }
-      } catch (e) {
-        console.error("Email link completion failed:", e)
-      }
-    })()
   }, [])
 
   // listen for sidebar -> "lucia:show-login"
@@ -206,6 +178,11 @@ export default function ChatPage() {
     <>
       {showLogin && (
         <LoginForm onClose={() => setShowLogin(false)} onLogin={() => setShowLogin(false)} />
+      )}
+
+      {/* Show email-verify banner when logged in but not verified */}
+      {user && user.email && !user.emailVerified && (
+        <EmailVerifyBanner />
       )}
 
       {capHit && (
