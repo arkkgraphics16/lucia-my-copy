@@ -2,7 +2,7 @@
 import React, { useState } from "react"
 import { auth, loginWithEmail, registerWithEmail, signInWithPopup, googleProvider, ensureUser } from "../firebase"
 
-export default function LoginForm({ onLogin }) {
+export default function LoginForm({ onClose, onLogin }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -24,8 +24,8 @@ export default function LoginForm({ onLogin }) {
       }
       await ensureUser(auth.currentUser.uid)
       onLogin && onLogin()
+      onClose && onClose()
     } catch (err) {
-      console.error(err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -39,8 +39,8 @@ export default function LoginForm({ onLogin }) {
       await signInWithPopup(auth, googleProvider)
       await ensureUser(auth.currentUser.uid)
       onLogin && onLogin()
+      onClose && onClose()
     } catch (err) {
-      console.error(err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -48,41 +48,35 @@ export default function LoginForm({ onLogin }) {
   }
 
   return (
-    <div className="login-form" style={{maxWidth: 320, margin: "40px auto", padding: 20, background: "#0f1b2a", borderRadius: 12}}>
-      <h2 style={{color:"#e6f1ff", marginBottom:12}}>Login</h2>
-      <form onSubmit={handleEmailLogin} style={{display:"flex", flexDirection:"column", gap:10}}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={e=>setEmail(e.target.value)}
-          required
-          style={{padding:10, borderRadius:8, border:"1px solid #333", background:"#131f30", color:"#fff"}}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={e=>setPassword(e.target.value)}
-          required
-          style={{padding:10, borderRadius:8, border:"1px solid #333", background:"#131f30", color:"#fff"}}
-        />
-        <button type="submit" disabled={loading} style={{padding:10, borderRadius:8, background:"#00c2ff", border:"none", color:"#fff", fontWeight:"600"}}>
-          {loading ? "Loading..." : "Login / Register"}
+    <div className="login-overlay" role="dialog" aria-modal="true">
+      <div className="login-modal">
+        <button className="close-btn" onClick={onClose} aria-label="Close">✕</button>
+        <h2>Log in</h2>
+        <form onSubmit={handleEmailLogin}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e=>setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e=>setPassword(e.target.value)}
+            required
+          />
+          <button type="submit" disabled={loading}>
+            {loading ? "Loading..." : "Login / Register"}
+          </button>
+        </form>
+        <div className="divider">or</div>
+        <button className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
+          Continue with Google
         </button>
-      </form>
-
-      <div style={{textAlign:"center", margin:"12px 0", color:"#8b9ab5"}}>or</div>
-
-      <button
-        onClick={handleGoogleLogin}
-        disabled={loading}
-        style={{padding:10, width:"100%", borderRadius:8, background:"#20d37a", border:"none", color:"#fff", fontWeight:"600"}}
-      >
-        Continue with Google
-      </button>
-
-      {error && <div style={{marginTop:10, color:"#ff4757", fontSize:14}}>{error}</div>}
+        {error && <div className="error">{error}</div>}
+      </div>
     </div>
   )
 }

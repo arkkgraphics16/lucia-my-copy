@@ -1,0 +1,85 @@
+/* Uses only three main colors from your theme:
+   - Background surfaces → var(--surface)
+   - Accent actions     → var(--primary)
+   - Text               → var(--text)
+   (Borders use --border which is a neutral alpha, not an extra color.) */
+
+.login-overlay{
+  position:fixed; inset:0;
+  background: rgba(0,0,0,.6);
+  display:flex; align-items:center; justify-content:center;
+  z-index:1000;
+}
+
+.login-modal{
+  background: var(--surface);
+  color: var(--text);
+  width:100%; max-width:360px;
+  padding:24px;
+  border-radius: var(--radius-3);
+  box-shadow: var(--shadow-2);
+  position:relative;
+}
+
+.login-modal h2{
+  margin:0 0 16px 0;
+  font-size:20px;
+  color: var(--text);
+}
+
+.login-modal input{
+  width:100%;
+  padding:10px;
+  margin-bottom:12px;
+  border-radius: var(--radius-2);
+  border:1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.login-modal button{
+  width:100%;
+  padding:10px;
+  border-radius: var(--radius-2);
+  border:none;
+  cursor:pointer;
+  font-weight:600;
+}
+
+.login-modal form button{
+  background: var(--primary);
+  color:#fff;
+  margin-bottom:12px;
+}
+
+.login-modal .google-btn{
+  background: var(--primary);
+  color:#fff;
+  opacity:.92;
+}
+
+.login-modal .google-btn:hover,
+.login-modal form button:hover{
+  opacity:1;
+}
+
+.login-modal .divider{
+  text-align:center;
+  margin:12px 0;
+  color: var(--text);
+  opacity:.6;
+}
+
+.login-modal .error{
+  margin-top:10px;
+  color: var(--text);
+  opacity:.9;
+}
+
+.close-btn{
+  position:absolute; top:8px; right:8px;
+  background:transparent; border:none;
+  color: var(--text); opacity:.6;
+  font-size:20px; cursor:pointer;
+}
+.close-btn:hover{ opacity:1; }

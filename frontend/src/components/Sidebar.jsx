@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
 import {
-  auth, googleProvider, signInWithPopup, signOut,
+  auth,
   createConversation, db,
   newConversationId, createConversationWithId,
   softDeleteConversation, setConversationTitle, setConversationFolder
@@ -18,12 +18,10 @@ export default function Sidebar({ open, onClose }) {
   const [convos, setConvos] = useState([])
   const [loadingConvos, setLoadingConvos] = useState(false)
 
-  // UI state: folder filter + per-row kebab menu
-  const [currentFolder, setCurrentFolder] = useState(null) // null = All
+  const [currentFolder, setCurrentFolder] = useState(null)
   const [openKebabFor, setOpenKebabFor] = useState(null)
   const kebabRef = useRef(null)
 
-  // Quick prompts
   const firstPrompt = "I don’t even know what I’ve gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
@@ -32,7 +30,6 @@ export default function Sidebar({ open, onClose }) {
   const email = user?.email || ''
   const currentCid = new URLSearchParams(window.location.search).get('c') || null
 
-  // Close kebab on outside click / route change
   useEffect(() => {
     function onClick(e){
       if (!kebabRef.current) return
@@ -42,7 +39,6 @@ export default function Sidebar({ open, onClose }) {
     return () => window.removeEventListener('click', onClick)
   }, [])
 
-  // Load conversations
   useEffect(() => {
     if (!user?.uid) return
     setConvos([])
@@ -71,21 +67,23 @@ export default function Sidebar({ open, onClose }) {
     return () => unsub()
   }, [user?.uid])
 
-  // Derived: distinct folder names from conversations
   const folders = useMemo(() => {
     const s = new Set()
     for (const c of convos) if (c.folder) s.add(c.folder)
     return Array.from(s).sort((a,b)=>a.localeCompare(b))
   }, [convos])
 
-  // Filtered conversations by currentFolder
   const visibleConvos = useMemo(() => {
     return convos.filter(c => currentFolder ? c.folder === currentFolder : true)
   }, [convos, currentFolder])
 
   async function handleNewChat() {
-    if (!auth.currentUser) await signInWithPopup(auth, googleProvider)
-    const uid = (auth.currentUser || user).uid
+    if (!auth.currentUser) {
+      // open modal login instead of Google popup
+      window.dispatchEvent(new CustomEvent('lucia:show-login'))
+      return
+    }
+    const uid = auth.currentUser.uid
 
     const cid = newConversationId(uid)
     setConvos(prev => [{ id: cid, title: 'New chat', __optimistic: true }, ...prev])
@@ -138,6 +136,8 @@ export default function Sidebar({ open, onClose }) {
     await handleMoveToFolder(cid, name.trim().slice(0, 48))
   }
 
+  const openLoginModal = () => window.dispatchEvent(new CustomEvent('lucia:show-login'))
+
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-content">
@@ -173,7 +173,8 @@ export default function Sidebar({ open, onClose }) {
           <h4 style={{ marginTop: 16 }}>Slots</h4>
           {!user ? (
             <div className="chips-wrap">
-              <span className="chip" onClick={() => signInWithPopup(auth, googleProvider)}>Log in to see chats</span>
+              {/* Open modal instead of direct Google popup */}
+              <span className="chip" onClick={openLoginModal}>Log in to see chats</span>
             </div>
           ) : loadingConvos ? (
             <div className="slots-skeleton">
@@ -200,14 +201,12 @@ export default function Sidebar({ open, onClose }) {
                       {c.folder && <span className="slot-folder">• {c.folder}</span>}
                     </button>
 
-                    {/* Kebab */}
                     <button
                       className="kebab-btn"
                       title="Options"
                       onClick={(e)=>{ e.stopPropagation(); setOpenKebabFor(openKebabFor === c.id ? null : c.id) }}
                     >⋯</button>
 
-                    {/* Dropdown */}
                     {openKebabFor === c.id && (
                       <div className="slot-menu">
                         <button className="menu-item" onClick={(e)=>{ e.stopPropagation(); handleRename(c.id, c.title) }}>
@@ -247,7 +246,8 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="sidebar-bottom">
           {!user ? (
-            <button className="user-footer login" onClick={() => signInWithPopup(auth, googleProvider)}>
+            // Bottom "Log in" button → open modal
+            <button className="user-footer login" onClick={openLoginModal}>
               Log in
             </button>
           ) : (
@@ -265,7 +265,7 @@ export default function Sidebar({ open, onClose }) {
                 <div className="user-menu">
                   <button
                     className="user-menu-item danger"
-                    onClick={async (e) => { e.stopPropagation(); setMenuOpen(false); await signOut(auth) }}
+                    onClick={async (e) => { e.stopPropagation(); setMenuOpen(false); await (await import('../firebase')).signOut(auth) }}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12H3m12 0l-4-4m4 4l-4 4m8-8V6a2 2 0 00-2-2h-4M19 10v4a2 2 0 01-2 2h-4"/>

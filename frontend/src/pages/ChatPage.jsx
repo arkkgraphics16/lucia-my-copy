@@ -1,21 +1,22 @@
 // lucia-secure/frontend/src/pages/ChatPage.jsx
-import React, { useRef, useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import MessageBubble from "../components/MessageBubble"
 import Composer from "../components/Composer"
 import { onQuickPrompt } from "../lib/bus"
 import { useAuthToken } from "../hooks/useAuthToken"
 import {
-  auth, googleProvider, signInWithPopup,
+  auth,
   ensureUser, getUserData,
   createConversation,
-  listenMessages, addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle,
-  registerWithEmail, loginWithEmail
+  listenMessages, addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
 } from "../firebase"
+import LoginForm from "../components/LoginForm"
 import "../styles/limit.css"
 import "../styles/typing.css"
 import "../styles/thread-loading.css"
 import "../styles/usage-indicator.css"
 import "../styles/chat-layout.css"
+import "../styles/login.css"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
@@ -30,6 +31,7 @@ export default function ChatPage() {
   const [remaining, setRemaining] = useState(null)
   const [system] = useState(DEFAULT_SYSTEM)
   const [loadingThread, setLoadingThread] = useState(false)
+  const [showLogin, setShowLogin] = useState(false)
 
   const [conversationId, setConversationId] = useState(() => {
     return new URLSearchParams(window.location.search).get("c") || null
@@ -38,6 +40,13 @@ export default function ChatPage() {
   useEffect(() => {
     const off = onQuickPrompt((t) => setText(String(t || "")))
     return off
+  }, [])
+
+  // listen for sidebar -> "lucia:show-login"
+  useEffect(() => {
+    const open = () => setShowLogin(true)
+    window.addEventListener("lucia:show-login", open)
+    return () => window.removeEventListener("lucia:show-login", open)
   }, [])
 
   useEffect(() => {
@@ -74,24 +83,8 @@ export default function ChatPage() {
 
   async function ensureLogin() {
     if (!auth.currentUser) {
-      const method = window.prompt("Login method? Type 'email' or 'google'")
-      if (method === "email") {
-        const email = window.prompt("Enter your email:")
-        const password = window.prompt("Enter your password:")
-        if (!email || !password) throw new Error("Login cancelled")
-
-        try {
-          await loginWithEmail(email, password)
-        } catch (err) {
-          if (err.code === "auth/user-not-found") {
-            await registerWithEmail(email, password)
-          } else {
-            throw err
-          }
-        }
-      } else {
-        await signInWithPopup(auth, googleProvider)
-      }
+      setShowLogin(true)
+      throw new Error("Login required")
     }
     const uid = auth.currentUser.uid
     await ensureUser(uid)
@@ -182,6 +175,10 @@ export default function ChatPage() {
 
   return (
     <>
+      {showLogin && (
+        <LoginForm onClose={() => setShowLogin(false)} onLogin={() => setShowLogin(false)} />
+      )}
+
       {capHit && (
         <div className="limit-banner">
           <div>
