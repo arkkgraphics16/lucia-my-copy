@@ -10,33 +10,40 @@ import {
 } from "../firebase"
 import {
   fetchSignInMethodsForEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  sendSignInLinkToEmail
 } from "firebase/auth"
 import AddPassword from "./AddPassword"
 
-// Change this to your preferred internal domain suffix for synthesized emails.
-// It must be a valid-looking email domain, but it never needs to receive mail.
-const USERNAME_EMAIL_SUFFIX = "users.luciadecode.com"
+// Where the verification/magic link should return the user.
+// This must be an authorized domain in Firebase Auth settings.
+const ACTION_URL =
+  (typeof window !== "undefined" ? window.location.origin : "http://localhost:5173") + "/"
+
+// Email link config (no third party)
+const actionCodeSettings = {
+  url: ACTION_URL,
+  handleCodeInApp: true
+}
 
 export default function LoginForm({ onClose, onLogin }) {
-  // UI state
-  const [tab, setTab] = useState("email") // "email" | "username"
+  // Tabs: Email/Password vs Email Link (passwordless)
+  const [tab, setTab] = useState("email") // "email" | "link"
 
-  // shared
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [hint, setHint] = useState("")
 
-  // email tab
+  // Email/Password state
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [methods, setMethods] = useState([])
 
-  // username tab
-  const [username, setUsername] = useState("")
-  const [uPassword, setUPassword] = useState("")
+  // Email Link state
+  const [linkEmail, setLinkEmail] = useState("")
 
-  // Only check providers for real emails (prevents createAuthUri 400 spam)
+  // Only check providers for real emails (prevents createAuthUri spam)
   useEffect(() => {
     if (tab !== "email") return
     const trimmed = (email || "").trim()
@@ -54,45 +61,37 @@ export default function LoginForm({ onClose, onLogin }) {
         if (alive) setMethods([])
       }
     })()
-    return () => {
-      alive = false
-    }
+    return () => { alive = false }
   }, [tab, email])
 
-  // ---------- EMAIL TAB ----------
+  // ---- EMAIL + PASSWORD ----
   async function handleEmailLogin(e) {
     e.preventDefault()
-    setLoading(true)
-    setError("")
-    setHint("")
-
+    setLoading(true); setError(""); setHint("")
     try {
-      const trimmed = email.trim()
-
-      // Validate before hitting Firebase
+      const trimmed = (email || "").trim()
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
         setError("Enter a valid email address.")
         return
       }
 
       let providerMethods = []
-      try {
-        providerMethods = await fetchSignInMethodsForEmail(auth, trimmed)
-      } catch {
-        providerMethods = []
-      }
+      try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
 
+      // If this email used Google previously and has no password yet
       if (providerMethods.includes("google.com") && !providerMethods.includes("password")) {
         setError("This email is registered with Google.")
-        setHint("Tap “Continue with Google” below to sign in.")
+        setHint("Tap “Continue with Google”, then add a password if you want email login.")
         return
       }
 
+      let registeredJustNow = false
       try {
         await loginWithEmail(trimmed, password)
       } catch (err) {
         if (err?.code === "auth/user-not-found") {
           await registerWithEmail(trimmed, password)
+          registeredJustNow = true
         } else if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password") {
           setError("Incorrect password.")
           setHint("If you forgot it, use Reset password or sign in with Google if you used that before.")
@@ -102,6 +101,17 @@ export default function LoginForm({ onClose, onLogin }) {
           return
         } else {
           throw err
+        }
+      }
+
+      // If new user: send verification email
+      if (registeredJustNow && auth.currentUser && !auth.currentUser.emailVerified) {
+        try {
+          await sendEmailVerification(auth.currentUser, actionCodeSettings)
+          setHint("Verification email sent. Please check your inbox and confirm.")
+        } catch (e) {
+          // Non-fatal
+          console.warn("sendEmailVerification failed:", e)
         }
       }
 
@@ -117,28 +127,18 @@ export default function LoginForm({ onClose, onLogin }) {
 
   async function handleResetPassword() {
     const trimmed = (email || "").trim()
-    if (!trimmed) {
-      setError("Enter your email first.")
-      return
-    }
+    if (!trimmed) { setError("Enter your email first."); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setError("Enter a valid email address.")
-      return
+      setError("Enter a valid email address."); return
     }
 
-    setLoading(true)
-    setError("")
-    setHint("")
+    setLoading(true); setError(""); setHint("")
     try {
       let providerMethods = []
-      try {
-        providerMethods = await fetchSignInMethodsForEmail(auth, trimmed)
-      } catch {
-        providerMethods = []
-      }
+      try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
       if (!providerMethods.includes("password")) {
         setError("No password set for this email.")
-        setHint("Use “Continue with Google” instead, then you can add a password in your account later.")
+        setHint("Use “Continue with Google” instead, then add a password later in Settings.")
         return
       }
       await sendPasswordResetEmail(auth, trimmed)
@@ -146,15 +146,11 @@ export default function LoginForm({ onClose, onLogin }) {
     } catch (err) {
       setError("Could not send reset email.")
       setHint(err?.message || "")
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   async function handleGoogleLogin() {
-    setLoading(true)
-    setError("")
-    setHint("")
+    setLoading(true); setError(""); setHint("")
     try {
       await signInWithPopup(auth, googleProvider)
       await ensureUser(auth.currentUser.uid)
@@ -163,9 +159,7 @@ export default function LoginForm({ onClose, onLogin }) {
     } catch (err) {
       setError("Google sign-in failed.")
       setHint(err?.message || "")
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const showAddPassword =
@@ -175,60 +169,23 @@ export default function LoginForm({ onClose, onLogin }) {
     methods[0] === "google.com" &&
     auth.currentUser.email === (email || "").trim()
 
-  // ---------- USERNAME TAB ----------
-  // Synthesize a safe email and reuse your existing helpers.
-  function synthesizeEmailFromUsername(u) {
-    const slug = String(u || "")
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]/g, "-") // allow a-z, 0-9, dot, underscore, dash
-      .replace(/-+/g, "-")
-      .replace(/^\-+|\-+$/g, "")
-    if (!slug) return null
-    return `${slug}@${USERNAME_EMAIL_SUFFIX}`
-  }
-
-  async function handleUsernameLogin(e) {
+  // ---- EMAIL LINK (PASSWORDLESS) ----
+  async function handleEmailLink(e) {
     e.preventDefault()
-    setLoading(true)
-    setError("")
-    setHint("")
-
+    setLoading(true); setError(""); setHint("")
     try {
-      const synth = synthesizeEmailFromUsername(username)
-      if (!synth) {
-        setError("Choose a valid username (letters/numbers, dots, dashes, underscores).")
+      const trimmed = (linkEmail || "").trim()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        setError("Enter a valid email address.")
         return
       }
-      if ((uPassword || "").length < 6) {
-        setError("Password must be at least 6 characters.")
-        return
-      }
-
-      // IMPORTANT:
-      // Do NOT call fetchSignInMethodsForEmail here.
-      // We directly attempt login, then register on user-not-found.
-      try {
-        await loginWithEmail(synth, uPassword)
-      } catch (err) {
-        if (err?.code === "auth/user-not-found") {
-          await registerWithEmail(synth, uPassword)
-        } else if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password") {
-          setError("Incorrect password for this username.")
-          return
-        } else if (err?.code === "auth/too-many-requests") {
-          setError("Too many attempts. Please wait a moment.")
-          return
-        } else {
-          throw err
-        }
-      }
-
-      await ensureUser(auth.currentUser.uid)
-      onLogin && onLogin()
-      onClose && onClose()
+      // Store for completion step on return
+      localStorage.setItem("lucia-emailForSignIn", trimmed)
+      await sendSignInLinkToEmail(auth, trimmed, actionCodeSettings)
+      setHint(`Magic link sent to ${trimmed}. Open it on this device to finish sign-in.`)
     } catch (err) {
-      setError("Firebase: " + (err?.message || "Unexpected error"))
+      setError("Failed to send link.")
+      setHint(err?.message || "")
     } finally {
       setLoading(false)
     }
@@ -245,13 +202,13 @@ export default function LoginForm({ onClose, onLogin }) {
             className={`tab ${tab === "email" ? "active" : ""}`}
             onClick={() => { setTab("email"); setError(""); setHint(""); }}
           >
-            Email
+            Email / Password
           </button>
           <button
-            className={`tab ${tab === "username" ? "active" : ""}`}
-            onClick={() => { setTab("username"); setError(""); setHint(""); }}
+            className={`tab ${tab === "link" ? "active" : ""}`}
+            onClick={() => { setTab("link"); setError(""); setHint(""); }}
           >
-            Username
+            Email Link
           </button>
         </div>
 
@@ -308,31 +265,21 @@ export default function LoginForm({ onClose, onLogin }) {
           </>
         ) : (
           <>
-            <h2>Log in with a Username</h2>
+            <h2>Log in with Email Link</h2>
             <p style={{ fontSize: 13, opacity: 0.8, marginTop: -4, marginBottom: 8 }}>
-              We’ll create a private login like <code>{`username@${USERNAME_EMAIL_SUFFIX}`}</code> behind the scenes.
-              No emails are sent.
+              We’ll email you a one-time sign-in link. No password required.
             </p>
-
-            <form onSubmit={handleUsernameLogin}>
+            <form onSubmit={handleEmailLink}>
               <input
-                type="text"
-                placeholder="Choose a username"
-                value={username}
-                onChange={e=>setUsername(e.target.value)}
+                type="email"
+                placeholder="Email (e.g., you@example.com)"
+                value={linkEmail}
+                onChange={e=>setLinkEmail(e.target.value)}
                 required
-                autoComplete="username"
-              />
-              <input
-                type="password"
-                placeholder="Password (min 6)"
-                value={uPassword}
-                onChange={e=>setUPassword(e.target.value)}
-                required
-                autoComplete="new-password"
+                autoComplete="email"
               />
               <button type="submit" disabled={loading}>
-                {loading ? "Loading..." : "Login / Register"}
+                {loading ? "Sending..." : "Send link"}
               </button>
             </form>
           </>
