@@ -1,16 +1,17 @@
-/* lucia-secure/frontend/src/styles/composer.css */
+/* Layout only: keyboard-safe composer aligned with the chat column.
+   No background colors here; app.css controls theme colors. */
 
-/* Vars updated by JS */
 :root{
-  --composer-h: 72px;
-  --kb-safe: 0px;
-  --sidebar-width: 260px;
+  --composer-h: 72px;       /* pixel height of .composer-row (used for padding) */
+  --kb-safe: 0px;           /* visualViewport overlap (optionally set via JS) */
+  --sidebar-width: 260px;   /* desktop sidebar width */
+  --content-w: 820px;       /* must match chat-layout.css */
 }
 
-/* Textarea sizing */
+/* Textarea sizing (read by the component JS) */
 .textarea{ --ta-min: 48px; --ta-max: 240px; }
 
-/* ================== WRAPPER ================== */
+/* Wrapper: fixed, paintless, no pointer events */
 .composer{
   position: fixed;
   left: 0; right: 0;
@@ -20,77 +21,80 @@
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  z-index: 30;
+  z-index: 30; /* above thread */
 }
 
-/* Row visible at bottom */
+/* Visible row at the bottom */
 .composer-row{
   position: absolute;
-  left: 12px; right: 12px;
+  left: 12px; right: 12px;          /* mobile default */
   bottom: max(12px, env(safe-area-inset-bottom));
   display: flex; gap: 10px; align-items: flex-end;
-  pointer-events: auto;
+  pointer-events: auto;             /* children are interactive */
 }
 
-/* ================== TABLET ================== */
-@media (min-width: 820px){
+/* ===== Small tablet (431–768px) ===== */
+@media (min-width: 431px) and (max-width: 768px){
+  .composer-row{ left: 16px; right: 16px; }
+}
+
+/* ===== Desktop / Large tablet (≥769px) =====
+   Center to the same column used by the thread:
+   area right of the sidebar is centered to --content-w. */
+@media (min-width: 769px){
   .composer-row{
-    /* Chat column centering handled by chat-layout.css */
-    overflow: hidden;
+    left: calc(
+      var(--sidebar-width) + max(12px,
+        ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
+      )
+    );
+    right: calc(
+      max(12px,
+        ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
+      )
+    );
+    overflow: hidden; /* prevents input shadow from bleeding under the sidebar */
   }
 }
 
-/* Thread bottom spacing */
+/* Ensure last message isn't covered by the composer */
 .thread{ padding-bottom: calc(var(--composer-h) + 12px); }
 
-/* ================== INPUT ================== */
+/* Input/controls sizing only (no colors) */
 .textarea{
   flex: 1 1 auto;
   min-height: var(--ta-min);
   max-height: var(--ta-max);
   padding: 12px 14px;
-  border-radius: var(--radius-2);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  border-radius: 14px;
   resize: none;
   line-height: 1.4;
-  box-shadow: 0 10px 26px rgba(0,0,0,.28);
   outline: none;
   transition: height .12s ease;
 }
 
-/* ================== CONTROLS ================== */
 .controls{ display:flex; gap:10px; align-items:center; }
 
-/* Send button */
 .send-pill{
   appearance:none; border:none; background:transparent;
   padding:0; line-height:0; cursor:pointer;
   width:48px; height:42px;
 }
 .send-pill svg{ width:48px; height:42px; display:block; }
-.pill-bg{ fill: var(--primary); }
-.pill-arrow{ fill: #fff; }
-.send-pill:disabled{ cursor:default; opacity:.55; }
 
-/* Cancel button */
 .action-btn.cancel{
   width:46px; height:46px; border-radius:999px;
   display:inline-flex; align-items:center; justify-content:center;
   border:1px solid transparent;
-  background: var(--core);
-  box-shadow: var(--shadow-1);
 }
 
-/* Mobile safe keyboard */
-@media (max-width:768px){
+/* Extra breathing room on tight phones under the keyboard */
+@media (max-width: 430px){
   .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
 }
 
-/* Remove blur/frost */
-.composer,
-.composer * {
+/* Kill any blur/frost (some browsers add it with sticky footers) */
+.composer, .composer *{
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   filter: none !important;

@@ -1,12 +1,12 @@
-/* lucia-secure/frontend/src/styles/chat-layout.css */
+/* Layout only: centered chat column + responsive gutters.
+   No backgrounds here (colors come from app.css). */
 
-/* Max content width (chat column). Tweak 780–820px to taste. */
 :root{
-  --content-w: 820px;
-  --sidebar-width: 260px; /* fallback if not defined elsewhere */
+  --content-w: 820px;       /* max chat column width */
+  --sidebar-width: 260px;   /* desktop sidebar width */
 }
 
-/* Center the main thread and limit-banner */
+/* Center the message thread and the limit banner to the same column */
 .thread,
 .limit-banner {
   max-width: var(--content-w);
@@ -14,29 +14,25 @@
   margin-right: auto;
 }
 
-/* Desktop/tablet: center the Composer across the remaining area (window − sidebar) */
-@media (min-width: 820px){
-  .composer-row{
-    left: calc(
-      var(--sidebar-width) + max(12px,
-        ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
-      )
-    );
-    right: calc(
-      max(12px,
-        ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
-      )
-    );
-  }
-}
-
-/* Bottom usage chip (desktop only – hidden on mobile) */
+/* Bottom usage chip (desktop/tablet only; mobile hides it) */
 .usage-indicator.bottom-chip {
   max-width: var(--content-w);
   margin: 8px auto 0 auto;
 }
 
-/* Mobile: Composer already spans edges; hide the bottom counter chip */
-@media (max-width: 819.98px){
-  .usage-indicator.bottom-chip{ display: none; }
+/* ===== Mobile (≤430px) ===== */
+@media (max-width: 430px){
+  .thread { padding-left: 12px; padding-right: 12px; }
+  .usage-indicator.bottom-chip { display: none; }
+}
+
+/* ===== Small tablet (431–768px) ===== */
+@media (min-width: 431px) and (max-width: 768px){
+  .thread { padding-left: 16px; padding-right: 16px; }
+  .usage-indicator.bottom-chip { display: none; }
+}
+
+/* ===== Desktop / Large tablet (≥769px) ===== */
+@media (min-width: 769px){
+  .thread { padding-left: 0; padding-right: 0; }
 }
