@@ -1,17 +1,20 @@
+/* lucia-secure/frontend/src/styles/chat-layout.css */
+
+/* Max content width (chat column). Tweak 780–820px to taste. */
 :root{
   --content-w: 820px;
-  --sidebar-width: 260px;
+  --sidebar-width: 260px; /* fallback if not defined elsewhere */
 }
 
-/* unify thread background */
+/* Center the main thread and limit-banner */
 .thread,
 .limit-banner {
   max-width: var(--content-w);
   margin-left: auto;
   margin-right: auto;
-  background: var(--surface-2);
 }
 
+/* Desktop/tablet: center the Composer across the remaining area (window − sidebar) */
 @media (min-width: 820px){
   .composer-row{
     left: calc(
@@ -27,11 +30,13 @@
   }
 }
 
+/* Bottom usage chip (desktop only – hidden on mobile) */
 .usage-indicator.bottom-chip {
   max-width: var(--content-w);
   margin: 8px auto 0 auto;
 }
 
+/* Mobile: Composer already spans edges; hide the bottom counter chip */
 @media (max-width: 819.98px){
   .usage-indicator.bottom-chip{ display: none; }
 }

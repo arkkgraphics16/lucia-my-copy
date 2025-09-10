@@ -1,23 +1,29 @@
+/* lucia-secure/frontend/src/styles/composer.css */
+
+/* Vars updated by JS */
 :root{
   --composer-h: 72px;
   --kb-safe: 0px;
   --sidebar-width: 260px;
 }
 
-.textarea{ --ta-min: 72px; --ta-max: 180px; }
+/* Textarea sizing */
+.textarea{ --ta-min: 48px; --ta-max: 240px; }
 
+/* ================== WRAPPER ================== */
 .composer{
   position: fixed;
   left: 0; right: 0;
   bottom: var(--kb-safe, 0px);
-  height: var(--composer-h);
+  height: 0;
   pointer-events: none;
-  background: var(--surface-2) !important;
+  background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
   z-index: 30;
 }
 
+/* Row visible at bottom */
 .composer-row{
   position: absolute;
   left: 12px; right: 12px;
@@ -26,8 +32,18 @@
   pointer-events: auto;
 }
 
-.thread{ padding-bottom: calc(var(--composer-h) + 12px); background: var(--surface-2); }
+/* ================== TABLET ================== */
+@media (min-width: 820px){
+  .composer-row{
+    /* Chat column centering handled by chat-layout.css */
+    overflow: hidden;
+  }
+}
 
+/* Thread bottom spacing */
+.thread{ padding-bottom: calc(var(--composer-h) + 12px); }
+
+/* ================== INPUT ================== */
 .textarea{
   flex: 1 1 auto;
   min-height: var(--ta-min);
@@ -35,7 +51,7 @@
   padding: 12px 14px;
   border-radius: var(--radius-2);
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--text);
   resize: none;
   line-height: 1.4;
@@ -44,8 +60,10 @@
   transition: height .12s ease;
 }
 
+/* ================== CONTROLS ================== */
 .controls{ display:flex; gap:10px; align-items:center; }
 
+/* Send button */
 .send-pill{
   appearance:none; border:none; background:transparent;
   padding:0; line-height:0; cursor:pointer;
@@ -56,10 +74,21 @@
 .pill-arrow{ fill: #fff; }
 .send-pill:disabled{ cursor:default; opacity:.55; }
 
+/* Cancel button */
+.action-btn.cancel{
+  width:46px; height:46px; border-radius:999px;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid transparent;
+  background: var(--core);
+  box-shadow: var(--shadow-1);
+}
+
+/* Mobile safe keyboard */
 @media (max-width:768px){
   .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
 }
 
+/* Remove blur/frost */
 .composer,
 .composer * {
   -webkit-backdrop-filter: none !important;
