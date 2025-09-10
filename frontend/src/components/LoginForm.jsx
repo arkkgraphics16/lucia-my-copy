@@ -1,5 +1,5 @@
 // lucia-secure/frontend/src/components/LoginForm.jsx
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import {
   auth,
   loginWithEmail,
@@ -16,15 +16,16 @@ import {
 } from "firebase/auth"
 import AddPassword from "./AddPassword"
 
-// Where the verification/magic link should return the user.
-// This must be an authorized domain in Firebase Auth settings.
-const ACTION_URL =
-  (typeof window !== "undefined" ? window.location.origin : "http://localhost:5173") + "/"
+/**
+ * HARD-SET the return URL to the production origin.
+ * This MUST be listed in Firebase → Authentication → Settings → Authorized domains.
+ * If you also use "www", add BOTH "luciadecode.com" and "www.luciadecode.com".
+ */
+const ACTION_URL = "https://luciadecode.com/";
 
-// Email link config (no third party)
 const actionCodeSettings = {
   url: ACTION_URL,
-  handleCodeInApp: true
+  handleCodeInApp: true,
 }
 
 export default function LoginForm({ onClose, onLogin }) {
@@ -43,7 +44,10 @@ export default function LoginForm({ onClose, onLogin }) {
   // Email Link state
   const [linkEmail, setLinkEmail] = useState("")
 
-  // Only check providers for real emails (prevents createAuthUri spam)
+  // Show the exact continue URL we send to Firebase (helps match Authorized domains)
+  const debugReturn = useMemo(() => ACTION_URL, [])
+
+  // Only check providers for well-formed emails (prevents createAuthUri spam)
   useEffect(() => {
     if (tab !== "email") return
     const trimmed = (email || "").trim()
@@ -78,7 +82,6 @@ export default function LoginForm({ onClose, onLogin }) {
       let providerMethods = []
       try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
 
-      // If this email used Google previously and has no password yet
       if (providerMethods.includes("google.com") && !providerMethods.includes("password")) {
         setError("This email is registered with Google.")
         setHint("Tap “Continue with Google”, then add a password if you want email login.")
@@ -104,13 +107,11 @@ export default function LoginForm({ onClose, onLogin }) {
         }
       }
 
-      // If new user: send verification email
       if (registeredJustNow && auth.currentUser && !auth.currentUser.emailVerified) {
         try {
           await sendEmailVerification(auth.currentUser, actionCodeSettings)
           setHint("Verification email sent. Please check your inbox and confirm.")
         } catch (e) {
-          // Non-fatal
           console.warn("sendEmailVerification failed:", e)
         }
       }
@@ -282,6 +283,11 @@ export default function LoginForm({ onClose, onLogin }) {
                 {loading ? "Sending..." : "Send link"}
               </button>
             </form>
+
+            {/* Debug line so you can match Firebase Authorized domains EXACTLY */}
+            <div style={{marginTop:8, fontSize:12, opacity:.6}}>
+              Return URL: <code>{debugReturn}</code>
+            </div>
           </>
         )}
 

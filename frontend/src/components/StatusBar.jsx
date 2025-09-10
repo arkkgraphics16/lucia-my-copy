@@ -2,13 +2,17 @@
 import React, { useEffect, useState } from 'react'
 import { useAuthToken } from '../hooks/useAuthToken'
 import { getUserData } from '../firebase'
-import "../styles/usage-indicator.css"   // add this
+import "../styles/usage-indicator.css"
 
 export default function StatusBar(){
   const { user } = useAuthToken()
   const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
   const [apiOk, setApiOk] = useState(null)
   const [remaining, setRemaining] = useState(null)
+
+  // Debug: show which Firebase config the FE is using (helps catch project mismatch)
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '(unset)'
+  const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '(unset)'
 
   useEffect(() => {
     let cancelled = false
@@ -57,6 +61,10 @@ export default function StatusBar(){
           </div>
         </>
       )}
+      {/* Tiny runtime debug so you can verify the FE is pointed at the expected Firebase project */}
+      <span style={{marginLeft:12, opacity:.6, fontSize:12}}>
+        proj:<code>{projectId}</code> • authDomain:<code>{authDomain}</code>
+      </span>
     </div>
   )
 }
