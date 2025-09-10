@@ -12,12 +12,15 @@ import {
 } from "../firebase"
 import LoginForm from "../components/LoginForm"
 import EmailVerifyBanner from "../components/EmailVerifyBanner"
+
+// styles
 import "../styles/limit.css"
 import "../styles/typing.css"
 import "../styles/thread-loading.css"
 import "../styles/usage-indicator.css"
 import "../styles/chat-layout.css"
 import "../styles/login.css"
+
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
@@ -26,19 +29,24 @@ const DEFAULT_SYSTEM =
 
 export default function ChatPage() {
   const { user } = useAuthToken()
+
   const [msgs, setMsgs] = useState([])
   const [text, setText] = useState("")
   const [busy, setBusy] = useState(false)
+
   const [capHit, setCapHit] = useState(false)
   const [remaining, setRemaining] = useState(null)
+
   const [system] = useState(DEFAULT_SYSTEM)
   const [loadingThread, setLoadingThread] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
 
+  // conversation id from ?c=<id>
   const [conversationId, setConversationId] = useState(() => {
     return new URLSearchParams(window.location.search).get("c") || null
   })
 
+  // quick prompt -> composer
   useEffect(() => {
     const off = onQuickPrompt((t) => setText(String(t || "")))
     return off
@@ -48,36 +56,43 @@ export default function ChatPage() {
   useEffect(() => {
     (async () => {
       try {
-        if (isSignInWithEmailLink(auth, window.location.href)) {
-          let email = window.localStorage.getItem("lucia-emailForSignIn") || ""
-          if (!email) {
-            email = window.prompt("Confirm your email for sign-in")
-          }
-          if (!email) return
-          await signInWithEmailLink(auth, email, window.location.href)
-          window.localStorage.removeItem("lucia-emailForSignIn")
-          await ensureUser(auth.currentUser.uid)
-          setShowLogin(false)
-          // Clean URL
-          const clean = new URL(window.location.origin + window.location.pathname + window.location.search)
-          clean.searchParams.delete("oobCode")
-          clean.searchParams.delete("mode")
-          clean.searchParams.delete("apiKey")
-          window.history.replaceState({}, "", clean)
+        const href = window.location.href
+        if (!href) return
+        if (!isSignInWithEmailLink(auth, href)) return
+
+        let email = window.localStorage.getItem("lucia-emailForSignIn") || ""
+        if (!email) {
+          email = window.prompt("Confirm your email for sign-in") || ""
         }
+        if (!email) return
+
+        await signInWithEmailLink(auth, email, href)
+        window.localStorage.removeItem("lucia-emailForSignIn")
+        if (auth.currentUser?.uid) {
+          await ensureUser(auth.currentUser.uid)
+        }
+        setShowLogin(false)
+
+        // Clean URL (drop Firebase query params but keep ?c)
+        const clean = new URL(window.location.origin + window.location.pathname + window.location.search)
+        clean.searchParams.delete("oobCode")
+        clean.searchParams.delete("mode")
+        clean.searchParams.delete("apiKey")
+        window.history.replaceState({}, "", clean)
       } catch (e) {
         console.error("Email link completion failed:", e)
       }
     })()
   }, [])
 
-  // listen for sidebar -> "lucia:show-login"
+  // sidebar event to open login
   useEffect(() => {
     const open = () => setShowLogin(true)
     window.addEventListener("lucia:show-login", open)
     return () => window.removeEventListener("lucia:show-login", open)
   }, [])
 
+  // handle external chat switch + back/forward
   useEffect(() => {
     const onSwitch = (e) => {
       const cid = e.detail?.cid
@@ -92,14 +107,15 @@ export default function ChatPage() {
       setLoadingThread(true)
       setConversationId(cid)
     }
-    window.addEventListener('lucia:switch-chat', onSwitch)
-    window.addEventListener('popstate', onPop)
+    window.addEventListener("lucia:switch-chat", onSwitch)
+    window.addEventListener("popstate", onPop)
     return () => {
-      window.removeEventListener('lucia:switch-chat', onSwitch)
-      window.removeEventListener('popstate', onPop)
+      window.removeEventListener("lucia:switch-chat", onSwitch)
+      window.removeEventListener("popstate", onPop)
     }
   }, [])
 
+  // live message listener for the active conversation
   useEffect(() => {
     if (!conversationId || !user?.uid) return
     setLoadingThread(true)
@@ -107,7 +123,10 @@ export default function ChatPage() {
       setMsgs(rows)
       setLoadingThread(false)
     })
-    return () => { setLoadingThread(true); unsub && unsub() }
+    return () => {
+      setLoadingThread(true)
+      unsub && unsub()
+    }
   }, [conversationId, user?.uid])
 
   async function ensureLogin() {
@@ -129,6 +148,7 @@ export default function ChatPage() {
     try {
       const uid = await ensureLogin()
 
+      // bootstrap conversation
       let cid = conversationId
       if (!cid) {
         const title = content.slice(0, 48)
@@ -141,6 +161,7 @@ export default function ChatPage() {
         await setConversationTitle(uid, cid, content.slice(0, 48))
       }
 
+      // check limits
       const profile = await getUserData(uid)
       const used = profile?.exchanges_used ?? 0
       const courtesy = profile?.courtesy_used ?? false
@@ -158,8 +179,10 @@ export default function ChatPage() {
         return
       }
 
+      // push user message
       await addMessage(uid, cid, "user", content)
 
+      // build worker payload
       const workerMessages = msgs.map(m => ({ role: m.role, content: m.content }))
       workerMessages.push({ role: "user", content })
 
@@ -173,7 +196,7 @@ export default function ChatPage() {
       let data = {}
       try { data = JSON.parse(bodyText) } catch { data = {} }
 
-      if (!res.ok || !data?.ok) {
+      if (!res.ok || data?.ok !== true) {
         await addMessage(uid, cid, "assistant", `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
         await bumpUpdatedAt(uid, cid)
         setBusy(false)
@@ -183,24 +206,31 @@ export default function ChatPage() {
       await addMessage(uid, cid, "assistant", data.reply || "(no reply)")
       await bumpUpdatedAt(uid, cid)
 
+      // update quota counters for free tier
       if (!isPro) {
         await incrementExchanges(uid)
         const updated = await getUserData(uid)
         const newUsed = updated?.exchanges_used ?? used
         const newCourtesy = updated?.courtesy_used ?? courtesy
-        setRemaining(!newCourtesy ? 10 - newUsed : 12 - newUsed)
+        const newLeft = !newCourtesy ? 10 - newUsed : 12 - newUsed
+        setRemaining(newLeft)
         if ((!newCourtesy && newUsed >= 10) || (newCourtesy && newUsed >= 12)) {
           setCapHit(true)
         }
       }
     } catch (err) {
-      console.error(err)
+      // swallow login-required error; otherwise log
+      if (String(err?.message || "").toLowerCase() !== "login required") {
+        console.error(err)
+      }
     } finally {
       setBusy(false)
     }
   }
 
-  function cancel() { setBusy(false) }
+  function cancel() {
+    setBusy(false)
+  }
 
   return (
     <>
@@ -214,7 +244,7 @@ export default function ChatPage() {
       )}
 
       {capHit && (
-        <div className="limit-banner">
+        <div className="limit-banner" role="alert">
           <div>
             <div className="title">Free messages finished</div>
             <div className="desc">Upgrade to keep chatting with Lucía.</div>

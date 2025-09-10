@@ -16,13 +16,17 @@ import {
 } from "firebase/auth"
 import AddPassword from "./AddPassword"
 
-// Use your production origin so Firebase Authorized Domains always matches.
+// If you only deploy to one domain, a constant is OK.
+// If you have multiple (preview/staging/prod), prefer a public env like:
+// const ACTION_URL = import.meta.env.VITE_PUBLIC_SITE_URL || "https://luciadecode.com/";
 const ACTION_URL = "https://luciadecode.com/"
 const actionCodeSettings = { url: ACTION_URL, handleCodeInApp: true }
 
 export default function LoginForm({ onClose, onLogin }) {
   // Tabs: Email/Password vs Email Link (passwordless)
   const [tab, setTab] = useState("email") // "email" | "link"
+  // Email tab mode
+  const [mode, setMode] = useState("login") // "login" | "register"
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -31,11 +35,26 @@ export default function LoginForm({ onClose, onLogin }) {
   // Email/Password state
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPw, setShowPw] = useState(false)
   const [methods, setMethods] = useState([])
 
   // Email Link state
   const [linkEmail, setLinkEmail] = useState("")
   const debugReturn = useMemo(() => ACTION_URL, [])
+
+  // --- password strength ---
+  function scorePassword(pw) {
+    let score = 0
+    if (pw.length >= 8) score++
+    if (/[A-Z]/.test(pw)) score++
+    if (/[a-z]/.test(pw)) score++
+    if (/\d/.test(pw)) score++
+    if (/[^A-Za-z0-9]/.test(pw)) score++
+    // 0-2 weak, 3 ok, 4-5 strong
+    return score
+  }
+  const pwScore = scorePassword(password)
+  const pwLabel = pwScore <= 2 ? "Weak" : pwScore === 3 ? "Okay" : "Strong"
 
   // Only check providers for well-formed emails (prevents createAuthUri spam)
   useEffect(() => {
@@ -59,7 +78,7 @@ export default function LoginForm({ onClose, onLogin }) {
   }, [tab, email])
 
   // ---- EMAIL + PASSWORD ----
-  async function handleEmailLogin(e) {
+  async function handleEmailLogin(e) { // LOGIN ONLY
     e.preventDefault()
     setLoading(true); setError(""); setHint("")
     try {
@@ -79,13 +98,13 @@ export default function LoginForm({ onClose, onLogin }) {
         return
       }
 
-      let registeredJustNow = false
       try {
         await loginWithEmail(trimmed, password)
       } catch (err) {
         if (err?.code === "auth/user-not-found") {
-          await registerWithEmail(trimmed, password)
-          registeredJustNow = true
+          setError("No account found for this email.")
+          setHint("Switch to Register to create one.")
+          return
         } else if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password") {
           setError("Incorrect password.")
           setHint("If you forgot it, use Reset password or sign in with Google if you used that before.")
@@ -98,11 +117,52 @@ export default function LoginForm({ onClose, onLogin }) {
         }
       }
 
-      // Send verification once on register (not on every login)
-      if (registeredJustNow && auth.currentUser && !auth.currentUser.emailVerified) {
+      await ensureUser(auth.currentUser.uid)
+      onLogin && onLogin()
+      onClose && onClose()
+    } catch (err) {
+      setError("Firebase: " + (err?.message || "Unexpected error"))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleEmailRegister(e) { // REGISTER ONLY
+    e.preventDefault()
+    setLoading(true); setError(""); setHint("")
+    try {
+      const trimmed = (email || "").trim()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        setError("Enter a valid email address.")
+        return
+      }
+
+      let providerMethods = []
+      try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
+
+      if (providerMethods.includes("password")) {
+        setError("An account already exists for this email.")
+        setHint("Switch to Log in, or reset your password.")
+        return
+      }
+      if (providerMethods.includes("google.com") && !providerMethods.includes("password")) {
+        setError("This email is registered with Google.")
+        setHint("Tap “Continue with Google”, then add a password in Settings.")
+        return
+      }
+
+      // optional: enforce strength at register time
+      if (pwScore <= 2) {
+        setError("Password too weak. Use at least 8 chars with mix of cases, numbers, symbols.")
+        return
+      }
+
+      await registerWithEmail(trimmed, password)
+
+      if (auth.currentUser && !auth.currentUser.emailVerified) {
         try {
           await sendEmailVerification(auth.currentUser, actionCodeSettings)
-          setHint("Verification email sent. Please check your inbox.")
+          setHint("Verification sent. Please check your inbox.")
         } catch (e) {
           console.warn("sendEmailVerification failed:", e)
         }
@@ -112,7 +172,13 @@ export default function LoginForm({ onClose, onLogin }) {
       onLogin && onLogin()
       onClose && onClose()
     } catch (err) {
-      setError("Firebase: " + (err?.message || "Unexpected error"))
+      if (err?.code === "auth/email-already-in-use") {
+        setError("Email already in use. Switch to Log in.")
+      } else if (err?.code === "auth/weak-password") {
+        setError("Password is too weak. Try a stronger one.")
+      } else {
+        setError("Firebase: " + (err?.message || "Unexpected error"))
+      }
     } finally {
       setLoading(false)
     }
@@ -206,8 +272,17 @@ export default function LoginForm({ onClose, onLogin }) {
 
         {tab === "email" ? (
           <>
-            <h2>Log in</h2>
-            <form onSubmit={handleEmailLogin}>
+            {/* Login/Register toggle */}
+            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+              <button className={`tab ${mode==="login"?"active":""}`} onClick={()=>{setMode("login"); setError(""); setHint("");}}>
+                Log in
+              </button>
+              <button className={`tab ${mode==="register"?"active":""}`} onClick={()=>{setMode("register"); setError(""); setHint("");}}>
+                Register
+              </button>
+            </div>
+
+            <form onSubmit={mode==="login" ? handleEmailLogin : handleEmailRegister}>
               <input
                 type="email"
                 placeholder="Email (e.g., you@example.com)"
@@ -216,30 +291,70 @@ export default function LoginForm({ onClose, onLogin }) {
                 required
                 autoComplete="email"
               />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={e=>setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-              <button type="submit" disabled={loading}>
-                {loading ? "Loading..." : "Login / Register"}
+
+              <div style={{ position:"relative" }}>
+                <input
+                  type={mode==="register" && showPw ? "text" : "password"}
+                  placeholder={mode==="register" ? "Create a password" : "Password"}
+                  value={password}
+                  onChange={e=>setPassword(e.target.value)}
+                  required
+                  autoComplete={mode==="login" ? "current-password" : "new-password"}
+                />
+                {mode==="register" && (
+                  <button
+                    type="button"
+                    onClick={()=>setShowPw(p=>!p)}
+                    style={{
+                      position:"absolute", right:8, top:8,
+                      fontSize:12, opacity:.8, background:"transparent",
+                      border:"none", cursor:"pointer", padding:"4px 6px"
+                    }}
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                  >
+                    {showPw ? "Hide" : "Show"}
+                  </button>
+                )}
+              </div>
+
+              {/* Strength meter (Register only) */}
+              {mode==="register" && (
+                <div style={{ marginTop:6, fontSize:12 }}>
+                  <div style={{height:6, background:"var(--surface-2)", borderRadius:4, overflow:"hidden"}}>
+                    <div
+                      style={{
+                        height:"100%",
+                        width: `${Math.min(100, pwScore*20)}%`,
+                        background: pwScore <= 2 ? "var(--core)" : pwScore === 3 ? "orange" : "limegreen",
+                        transition:"width .2s"
+                      }}
+                    />
+                  </div>
+                  <div style={{opacity:.85, marginTop:4}}>
+                    Strength: <strong>{pwLabel}</strong>
+                    {pwScore <= 2 && " · Use 8+ chars with upper/lowercase, numbers, and a symbol."}
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" disabled={loading} style={{ marginTop: 10 }}>
+                {loading ? "Loading..." : (mode==="login" ? "Log in" : "Create account")}
               </button>
             </form>
 
-            <button
-              onClick={handleResetPassword}
-              disabled={loading}
-              style={{
-                width:"100%", marginTop:8, marginBottom:8, padding:8,
-                border:"1px solid var(--border)", background:"transparent",
-                color:"var(--text)", borderRadius:"var(--radius-2)", cursor:"pointer"
-              }}
-            >
-              Reset password
-            </button>
+            {mode==="login" && (
+              <button
+                onClick={handleResetPassword}
+                disabled={loading}
+                style={{
+                  width:"100%", marginTop:8, marginBottom:8, padding:8,
+                  border:"1px solid var(--border)", background:"transparent",
+                  color:"var(--text)", borderRadius:"var(--radius-2)", cursor:"pointer"
+                }}
+              >
+                Reset password
+              </button>
+            )}
 
             {showAddPassword && (
               <div style={{ marginTop: 12 }}>
