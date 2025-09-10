@@ -1,46 +1,61 @@
-/* lucia-secure/frontend/src/styles/composer.css */
+/* === Keyboard-safe, centered composer aligned with chat column === */
 
-/* Vars updated by JS */
 :root{
-  --composer-h: 72px;
-  --kb-safe: 0px;
-  --sidebar-width: 260px;
+  --composer-h: 72px;       /* actual pixel height of .composer-row */
+  --kb-safe: 0px;           /* visualViewport overlap (set via JS if needed) */
+  --sidebar-width: 260px;   /* desktop/sidebar width */
+  --content-w: 820px;       /* must match chat-layout.css */
 }
 
-/* Textarea sizing */
+/* Textarea sizing (also read in JS) */
 .textarea{ --ta-min: 48px; --ta-max: 240px; }
 
-/* ================== WRAPPER ================== */
+/* ================== WRAPPER: NO PAINT ================== */
 .composer{
   position: fixed;
   left: 0; right: 0;
   bottom: var(--kb-safe, 0px);
-  height: 0;
-  pointer-events: none;
+  height: 0;               /* wrapper occupies no visible height */
+  pointer-events: none;    /* wrapper doesn’t catch taps */
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  z-index: 30;
+  z-index: 30;             /* above thread */
 }
 
-/* Row visible at bottom */
+/* The visible row; positioned at the real bottom */
 .composer-row{
   position: absolute;
-  left: 12px; right: 12px;
+  left: 12px; right: 12px;                          /* mobile default */
   bottom: max(12px, env(safe-area-inset-bottom));
   display: flex; gap: 10px; align-items: flex-end;
-  pointer-events: auto;
+  pointer-events: auto;     /* children are interactive */
 }
 
-/* ================== TABLET ================== */
-@media (min-width: 820px){
+/* ===== Small tablet (431–768px) ===== */
+@media (min-width: 431px) and (max-width: 768px){
+  .composer-row{ left: 16px; right: 16px; }
+}
+
+/* ===== Desktop / Large tablet (≥769px) =====
+   Center inside the area right of the sidebar to match the column width */
+@media (min-width: 769px){
   .composer-row{
-    /* Chat column centering handled by chat-layout.css */
-    overflow: hidden;
+    left: calc(
+      var(--sidebar-width) + max(12px,
+        ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
+      )
+    );
+    right: calc(
+      max(12px,
+        ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
+      )
+    );
+    overflow: hidden;       /* prevents input shadow bleeding under sidebar */
   }
 }
 
-/* Thread bottom spacing */
+/* Thread bottom spacing so last message isn’t covered */
 .thread{ padding-bottom: calc(var(--composer-h) + 12px); }
 
 /* ================== INPUT ================== */
@@ -49,7 +64,7 @@
   min-height: var(--ta-min);
   max-height: var(--ta-max);
   padding: 12px 14px;
-  border-radius: var(--radius-2);
+  border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -63,34 +78,32 @@
 /* ================== CONTROLS ================== */
 .controls{ display:flex; gap:10px; align-items:center; }
 
-/* Send button */
+/* Send button (squircle with white triangle) */
 .send-pill{
   appearance:none; border:none; background:transparent;
   padding:0; line-height:0; cursor:pointer;
-  width:48px; height:42px;
+  width:48px; height:42px; /* matches SVG viewBox */
 }
 .send-pill svg{ width:48px; height:42px; display:block; }
-.pill-bg{ fill: var(--primary); }
-.pill-arrow{ fill: #fff; }
+.pill-bg{ fill: var(--primary); }     /* blue background */
+.pill-arrow{ fill: #fff; }            /* white triangle */
 .send-pill:disabled{ cursor:default; opacity:.55; }
 
-/* Cancel button */
+/* Cancel stays red */
 .action-btn.cancel{
   width:46px; height:46px; border-radius:999px;
   display:inline-flex; align-items:center; justify-content:center;
-  border:1px solid transparent;
-  background: var(--core);
-  box-shadow: var(--shadow-1);
+  border:1px solid transparent; background: var(--core); box-shadow: var(--shadow-1);
 }
 
-/* Mobile safe keyboard */
-@media (max-width:768px){
+/* Mobile: extra breathing room under keyboard */
+@media (max-width: 430px){
   .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
 }
 
-/* Remove blur/frost */
+/* Kill any blur/frost */
 .composer,
-.composer * {
+.composer *{
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   filter: none !important;
