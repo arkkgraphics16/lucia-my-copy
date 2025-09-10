@@ -14,6 +14,9 @@ import {
   addDoc, collection, query, orderBy, onSnapshot, increment
 } from 'firebase/firestore';
 
+// --------------------------
+// Firebase init
+// --------------------------
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -39,7 +42,60 @@ async function loginWithEmail(email, password) {
 // ===== Firestore =====
 const db = getFirestore(app);
 
-// --- helpers ---
+// --------------------------
+// Client-side crypto helpers
+// AES-GCM 256; per-user DEK, cached by uid.
+// Stored as Base64 'raw' key in localStorage (lucia_dek_v1:<uid>).
+// --------------------------
+const TEXT = {
+  enc: new TextEncoder(),
+  dec: new TextDecoder()
+};
+
+function toBase64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+function fromBase64(b64) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
+}
+
+function dekStorageKey(uid) {
+  return `lucia_dek_v1:${uid}`;
+}
+
+async function getOrCreateDEK(uid) {
+  if (!uid) throw new Error('Missing uid for DEK');
+  const k = dekStorageKey(uid);
+  const existing = localStorage.getItem(k);
+  if (existing) {
+    const raw = fromBase64(existing);
+    return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
+  }
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+  const raw = await crypto.subtle.exportKey('raw', key);
+  localStorage.setItem(k, toBase64(raw));
+  return key;
+}
+
+async function encryptForUser(uid, text) {
+  const dek = await getOrCreateDEK(uid);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const pt = TEXT.enc.encode(String(text ?? ''));
+  const ctBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, dek, pt);
+  return { ciphertext: toBase64(ctBuf), iv: toBase64(iv.buffer) };
+}
+
+async function decryptForUser(uid, ciphertextB64, ivB64) {
+  const dek = await getOrCreateDEK(uid);
+  const ct = fromBase64(ciphertextB64);
+  const iv = new Uint8Array(fromBase64(ivB64));
+  const ptBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, dek, ct);
+  return TEXT.dec.decode(ptBuf);
+}
+
+// --------------------------
+// User and conversations
+// --------------------------
 async function ensureUser(uid) {
   const ref = doc(db, 'users', uid);
   const snap = await getDoc(ref);
@@ -82,19 +138,61 @@ async function createConversationWithId(uid, id, init = {}) {
   return id;
 }
 
+// --------------------------
+// Messages (ENCRYPTED AT REST)
+// --------------------------
 function listenMessages(uid, cid, cb) {
   const q = query(
     collection(db, 'users', uid, 'conversations', cid, 'messages'),
     orderBy('createdAt', 'asc')
   );
+
+  // onSnapshot callback cannot be async directly; use IIFE.
   return onSnapshot(q, (snap) => {
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    (async () => {
+      const items = await Promise.all(snap.docs.map(async d => {
+        const raw = d.data();
+        let content = '';
+
+        // Back-compat: plaintext content (legacy)
+        if (typeof raw.content === 'string') {
+          content = raw.content;
+        } else if (raw.ciphertext && raw.iv) {
+          // Decrypt new-format messages
+          try {
+            content = await decryptForUser(uid, raw.ciphertext, raw.iv);
+          } catch (e) {
+            // If decryption fails, show a placeholder rather than crashing UI
+            content = '[Cannot decrypt message on this device]';
+            // You may log this if needed
+            // console.warn('Decrypt failed:', e);
+          }
+        } else {
+          // Unknown shape; keep it safely empty
+          content = '';
+        }
+
+        return {
+          id: d.id,
+          role: raw.role || 'assistant',
+          content,
+          createdAt: raw.createdAt ?? null
+        };
+      }));
+
+      cb(items);
+    })();
   });
 }
 
 async function addMessage(uid, cid, role, content) {
+  // Always store encrypted
+  const { ciphertext, iv } = await encryptForUser(uid, content);
   return addDoc(collection(db, 'users', uid, 'conversations', cid, 'messages'), {
-    role, content, createdAt: serverTimestamp()
+    role,
+    ciphertext,
+    iv,
+    createdAt: serverTimestamp()
   });
 }
 
