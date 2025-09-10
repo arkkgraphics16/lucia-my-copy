@@ -1,5 +1,5 @@
 // lucia-secure/frontend/src/components/LoginForm.jsx
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import {
   auth,
   loginWithEmail,
@@ -8,7 +8,11 @@ import {
   googleProvider,
   ensureUser
 } from "../firebase"
-import { fetchSignInMethodsForEmail, sendPasswordResetEmail } from "firebase/auth"
+import {
+  fetchSignInMethodsForEmail,
+  sendPasswordResetEmail
+} from "firebase/auth"
+import AddPassword from "./AddPassword"
 
 export default function LoginForm({ onClose, onLogin }) {
   const [email, setEmail] = useState("")
@@ -16,6 +20,20 @@ export default function LoginForm({ onClose, onLogin }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [hint, setHint] = useState("")
+  const [methods, setMethods] = useState([])
+
+  useEffect(() => {
+    async function check() {
+      if (!email) return
+      try {
+        const m = await fetchSignInMethodsForEmail(auth, email)
+        setMethods(m)
+      } catch {
+        setMethods([])
+      }
+    }
+    check()
+  }, [email])
 
   async function handleEmailLogin(e) {
     e.preventDefault()
@@ -24,29 +42,30 @@ export default function LoginForm({ onClose, onLogin }) {
     setHint("")
 
     try {
-      // Find what providers exist for this email
       const methods = await fetchSignInMethodsForEmail(auth, email).catch(() => [])
 
-      // If Google is already linked, steer user to Google
       if (methods.includes("google.com") && !methods.includes("password")) {
         setError("This email is registered with Google.")
         setHint("Tap “Continue with Google” below to sign in.")
         return
       }
 
-      // Try password sign-in first
       try {
         await loginWithEmail(email, password)
       } catch (err) {
-        // If user doesn’t exist, create one
         if (err.code === "auth/user-not-found") {
           await registerWithEmail(email, password)
-        } else if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
+        } else if (
+          err.code === "auth/invalid-credential" ||
+          err.code === "auth/wrong-password"
+        ) {
           setError("Incorrect password.")
-          setHint("If you forgot it, use Reset password or sign in with Google if you used that before.")
+          setHint(
+            "If you forgot it, use Reset password or sign in with Google if you used that before."
+          )
           return
         } else if (err.code === "auth/too-many-requests") {
-          setError("Too many attempts. Please wait a moment or use Google to sign in.")
+          setError("Too many attempts. Please wait or use Google.")
           return
         } else {
           throw err
@@ -92,7 +111,9 @@ export default function LoginForm({ onClose, onLogin }) {
       const methods = await fetchSignInMethodsForEmail(auth, email).catch(() => [])
       if (!methods.includes("password")) {
         setError("No password set for this email.")
-        setHint("Use “Continue with Google” instead, then you can add a password in your account later.")
+        setHint(
+          "Use “Continue with Google” instead, then you can add a password in your account later."
+        )
         return
       }
       await sendPasswordResetEmail(auth, email)
@@ -105,10 +126,18 @@ export default function LoginForm({ onClose, onLogin }) {
     }
   }
 
+  const showAddPassword =
+    auth.currentUser?.email &&
+    methods.length === 1 &&
+    methods[0] === "google.com" &&
+    auth.currentUser.email === email
+
   return (
     <div className="login-overlay" role="dialog" aria-modal="true">
       <div className="login-modal">
-        <button className="close-btn" onClick={onClose} aria-label="Close">✕</button>
+        <button className="close-btn" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
         <h2>Log in</h2>
 
         <form onSubmit={handleEmailLogin}>
@@ -116,14 +145,14 @@ export default function LoginForm({ onClose, onLogin }) {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={e=>setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
           <input
             type="password"
             placeholder="Password"
             value={password}
-            onChange={e=>setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
           />
           <button type="submit" disabled={loading}>
@@ -135,24 +164,44 @@ export default function LoginForm({ onClose, onLogin }) {
           onClick={handleResetPassword}
           disabled={loading}
           style={{
-            width:"100%", marginTop:8, marginBottom:8, padding:8,
-            border:"1px solid var(--border)", background:"transparent",
-            color:"var(--text)", borderRadius:"var(--radius-2)", cursor:"pointer"
+            width: "100%",
+            marginTop: 8,
+            marginBottom: 8,
+            padding: 8,
+            border: "1px solid var(--border)",
+            background: "transparent",
+            color: "var(--text)",
+            borderRadius: "var(--radius-2)",
+            cursor: "pointer"
           }}
         >
           Reset password
         </button>
 
+        {showAddPassword && (
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontSize: 14, opacity: 0.8 }}>
+              You signed in with Google. Add a password to also log in with
+              email/password:
+            </p>
+            <AddPassword onDone={() => setHint("Password added successfully.")} />
+          </div>
+        )}
+
         <div className="divider">or</div>
 
-        <button className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
+        <button
+          className="google-btn"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+        >
           Continue with Google
         </button>
 
         {(error || hint) && (
-          <div className="error" style={{marginTop:10}}>
-            {error && <div style={{color:"var(--core)"}}>{error}</div>}
-            {hint && <div style={{opacity:.9}}>{hint}</div>}
+          <div className="error" style={{ marginTop: 10 }}>
+            {error && <div style={{ color: "var(--core)" }}>{error}</div>}
+            {hint && <div style={{ opacity: 0.9 }}>{hint}</div>}
           </div>
         )}
       </div>
