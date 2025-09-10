@@ -8,12 +8,14 @@ import {
   auth, googleProvider, signInWithPopup,
   ensureUser, getUserData,
   createConversation,
-  listenMessages, addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
+  listenMessages, addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle,
+  registerWithEmail, loginWithEmail
 } from "../firebase"
 import "../styles/limit.css"
 import "../styles/typing.css"
 import "../styles/thread-loading.css"
 import "../styles/usage-indicator.css"
+import "../styles/chat-layout.css"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
@@ -71,7 +73,26 @@ export default function ChatPage() {
   }, [conversationId, user?.uid])
 
   async function ensureLogin() {
-    if (!auth.currentUser) await signInWithPopup(auth, googleProvider)
+    if (!auth.currentUser) {
+      const method = window.prompt("Login method? Type 'email' or 'google'")
+      if (method === "email") {
+        const email = window.prompt("Enter your email:")
+        const password = window.prompt("Enter your password:")
+        if (!email || !password) throw new Error("Login cancelled")
+
+        try {
+          await loginWithEmail(email, password)
+        } catch (err) {
+          if (err.code === "auth/user-not-found") {
+            await registerWithEmail(email, password)
+          } else {
+            throw err
+          }
+        }
+      } else {
+        await signInWithPopup(auth, googleProvider)
+      }
+    }
     const uid = auth.currentUser.uid
     await ensureUser(uid)
     return uid
@@ -105,11 +126,7 @@ export default function ChatPage() {
 
       let left = null
       if (!isPro) {
-        if (!courtesy) {
-          left = Math.max(0, 10 - used)
-        } else {
-          left = Math.max(0, 12 - used)
-        }
+        left = !courtesy ? Math.max(0, 10 - used) : Math.max(0, 12 - used)
       }
       setRemaining(left)
 
@@ -201,6 +218,7 @@ export default function ChatPage() {
       </div>
 
       <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
+
       {remaining !== null && !capHit && (
         <div
           className={

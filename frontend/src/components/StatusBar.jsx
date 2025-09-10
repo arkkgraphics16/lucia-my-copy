@@ -53,7 +53,7 @@ export default function StatusBar(){
           <div className={`usage-indicator usage-indicator--sm ${state}`}>
             <span className="usage-indicator__dot"></span>
             <span className="usage-indicator__count">{remaining}</span>
-            <span className="usage-indicator__label">left</span>
+            <span className="usage-indicator__label">messages left</span>
           </div>
         </>
       )}

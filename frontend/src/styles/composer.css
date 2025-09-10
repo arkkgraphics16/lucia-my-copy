@@ -2,54 +2,45 @@
 
 /* Vars updated by JS */
 :root{
-  --composer-h: 72px;       /* actual pixel height of .composer-row */
-  --kb-safe: 0px;           /* visualViewport overlap */
-  --sidebar-width: 260px;   /* desktop/tablet sidebar width; override globally if needed */
+  --composer-h: 72px;
+  --kb-safe: 0px;
+  --sidebar-width: 260px;
 }
 
-/* Textarea sizing (also read in JS) */
+/* Textarea sizing */
 .textarea{ --ta-min: 48px; --ta-max: 240px; }
 
-/* ================== WRAPPER: NO PAINT ================== */
-/* Fixed, paintless, and non-interactive to avoid any “transparent block” */
+/* ================== WRAPPER ================== */
 .composer{
   position: fixed;
   left: 0; right: 0;
   bottom: var(--kb-safe, 0px);
-  height: 0;               /* wrapper occupies no visible height */
-  pointer-events: none;    /* wrapper doesn’t catch taps */
+  height: 0;
+  pointer-events: none;
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  z-index: 30;             /* ensure above thread/content */
+  z-index: 30;
 }
 
-/* The only visible row; positioned at the real bottom */
+/* Row visible at bottom */
 .composer-row{
   position: absolute;
-  left: 12px; right: 12px;                          /* mobile / narrow screens */
+  left: 12px; right: 12px;
   bottom: max(12px, env(safe-area-inset-bottom));
   display: flex; gap: 10px; align-items: flex-end;
-  pointer-events: auto;     /* children are interactive */
+  pointer-events: auto;
 }
 
-/* ================== TABLET OFFSET (sidebar persistent here) ================== */
-/* If your sidebar becomes persistent at a different width, tweak 820px. */
+/* ================== TABLET ================== */
 @media (min-width: 820px){
   .composer-row{
-    left: calc(var(--sidebar-width) + 12px);
+    /* Chat column centering handled by chat-layout.css */
+    overflow: hidden;
   }
 }
 
-/* ================== DESKTOP (keep overflow guard) ================== */
-@media (min-width: 1024px){
-  .composer-row{
-    left: calc(var(--sidebar-width) + 12px);
-    overflow: hidden;       /* prevents input shadow from bleeding under sidebar */
-  }
-}
-
-/* Thread bottom spacing so last message isn’t covered */
+/* Thread bottom spacing */
 .thread{ padding-bottom: calc(var(--composer-h) + 12px); }
 
 /* ================== INPUT ================== */
@@ -58,13 +49,13 @@
   min-height: var(--ta-min);
   max-height: var(--ta-max);
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-2);
   border: 1px solid var(--border);
-  background: var(--surface);     /* same tone as chat area */
+  background: var(--surface);
   color: var(--text);
   resize: none;
   line-height: 1.4;
-  box-shadow: 0 10px 26px rgba(0,0,0,.28);  /* subtle 3D */
+  box-shadow: 0 10px 26px rgba(0,0,0,.28);
   outline: none;
   transition: height .12s ease;
 }
@@ -72,36 +63,34 @@
 /* ================== CONTROLS ================== */
 .controls{ display:flex; gap:10px; align-items:center; }
 
-/* Squircle send button (blue bg + white right triangle) */
+/* Send button */
 .send-pill{
   appearance:none; border:none; background:transparent;
   padding:0; line-height:0; cursor:pointer;
-  width:48px; height:42px; /* matches SVG viewBox */
+  width:48px; height:42px;
 }
 .send-pill svg{ width:48px; height:42px; display:block; }
-.pill-bg{ fill: var(--primary); }     /* blue background */
-.pill-arrow{ fill: #fff; }            /* white triangle */
+.pill-bg{ fill: var(--primary); }
+.pill-arrow{ fill: #fff; }
 .send-pill:disabled{ cursor:default; opacity:.55; }
 
-/* Cancel stays red */
+/* Cancel button */
 .action-btn.cancel{
   width:46px; height:46px; border-radius:999px;
   display:inline-flex; align-items:center; justify-content:center;
-  border:1px solid transparent; background: var(--core); box-shadow: var(--shadow-1);
+  border:1px solid transparent;
+  background: var(--core);
+  box-shadow: var(--shadow-1);
 }
 
-/* Mobile still tracks keyboard safely (wrapper is fixed) */
+/* Mobile safe keyboard */
 @media (max-width:768px){
   .thread{ padding-bottom: calc(var(--composer-h) + 18px); }
 }
 
-/* ================== HARD KILL ANY BLUR/FROST ================== */
+/* Remove blur/frost */
 .composer,
-.composer *,
-.composer::before,
-.composer::after,
-.composer-row::before,
-.composer-row::after{
+.composer * {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   filter: none !important;

@@ -1,7 +1,13 @@
 // lucia-secure/frontend/src/firebase.js
 import { initializeApp } from 'firebase/app';
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onIdTokenChanged
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onIdTokenChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import {
   getFirestore, serverTimestamp, doc, getDoc, setDoc, updateDoc,
@@ -19,6 +25,16 @@ const app = initializeApp(firebaseConfig);
 // ===== Auth =====
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
+
+// Extra helpers for Email/Password
+async function registerWithEmail(email, password) {
+  const res = await createUserWithEmailAndPassword(auth, email, password);
+  return res.user;
+}
+async function loginWithEmail(email, password) {
+  const res = await signInWithEmailAndPassword(auth, email, password);
+  return res.user;
+}
 
 // ===== Firestore =====
 const db = getFirestore(app);
@@ -88,7 +104,7 @@ async function bumpUpdatedAt(uid, cid) {
   });
 }
 
-// Free 10 + courtesy +2 (server-guarded by rules you’ll paste)
+// Free 10 + courtesy +2
 async function incrementExchanges(uid) {
   const ref = doc(db, 'users', uid);
   const snap = await getDoc(ref);
@@ -121,15 +137,11 @@ async function setConversationTitle(uid, cid, title) {
   });
 }
 
-// Soft delete a conversation (hide from UI)
 async function softDeleteConversation(uid, cid) {
   const ref = doc(db, 'users', uid, 'conversations', cid);
-  await updateDoc(ref, {
-    deletedAt: serverTimestamp()
-  });
+  await updateDoc(ref, { deletedAt: serverTimestamp() });
 }
 
-// Assign/remove folder on a conversation
 async function setConversationFolder(uid, cid, folder) {
   const ref = doc(db, 'users', uid, 'conversations', cid);
   await updateDoc(ref, {
@@ -145,5 +157,6 @@ export {
   createConversation,
   newConversationId, createConversationWithId,
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges,
-  setConversationTitle, softDeleteConversation, setConversationFolder
+  setConversationTitle, softDeleteConversation, setConversationFolder,
+  registerWithEmail, loginWithEmail
 };
