@@ -236,16 +236,17 @@ a {
   animation: fadeUp 0.18s ease;
 }
 
+/* FIX: consistent max-width for both roles */
 .bubble.assistant {
   background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
-  width: 100%;
+  max-width: 75%;
 }
 
 .bubble.user {
   background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
   border-color: #0e7aa5;
   margin-left: auto;
-  max-width: 60%;
+  max-width: 75%;
 }
 
 .bubble .role {
@@ -257,6 +258,14 @@ a {
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* MOBILE FIX: allow a little more width */
+@media (max-width: 768px) {
+  .bubble.assistant,
+  .bubble.user {
+    max-width: 90%;
+  }
 }
 
 /* Status and Dots */
