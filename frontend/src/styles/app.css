@@ -219,7 +219,8 @@ html, body, #root,
 html, body, #root { background:#0b1621 !important; color:#e6f1ff !important; height:100%; }
 .app-shell, .layout, .main,
 .chat, .chat-page, .chat-area, .chat-scroll, .chat-body, .chat-canvas {
-  background: #0b1621 !important;
+  background: var(--surface-2) !important;
+
 }
 
 /* Make main fill full viewport height on mobile toolbars */
