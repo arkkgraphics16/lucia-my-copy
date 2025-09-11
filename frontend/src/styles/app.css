@@ -404,7 +404,8 @@ a {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-left: auto;
+    order: -1; /* Move to the left side */
+    margin-right: auto;
   }
 
   .layout {
