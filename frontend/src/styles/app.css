@@ -400,12 +400,20 @@ a {
 
 /* MOBILE BREAKPOINT */
 @media (max-width: 768px) {
+  .header {
+    justify-content: flex-start; /* Align items to the left */
+  }
+
   .sidebar-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     order: -1; /* Move to the left side */
-    margin-right: auto;
+    margin-right: 12px; /* Add space between hamburger and brand */
+  }
+
+  .brand {
+    margin-left: 0; /* Remove any auto margins */
   }
 
   .layout {
