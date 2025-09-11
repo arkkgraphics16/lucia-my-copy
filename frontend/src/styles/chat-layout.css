@@ -15,7 +15,7 @@
 }
 
 /* Desktop/tablet: center the Composer across the remaining area (window − sidebar) */
-@media (min-width: 820px){
+@media (min-width: 1024px){     /* changed from 820px */
   .composer-row{
     left: calc(
       var(--sidebar-width) + max(12px,
@@ -37,6 +37,11 @@
 }
 
 /* Mobile: Composer already spans edges; hide the bottom counter chip */
-@media (max-width: 819.98px){
+@media (max-width: 1023.98px){  /* changed from 819.98px */
+  .thread, .limit-banner {
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
   .usage-indicator.bottom-chip{ display: none; }
 }
