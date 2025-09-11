@@ -218,13 +218,47 @@ a {
 
 .thread {
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 24px;
+  padding-right: 28px; /* Extra space for custom scrollbar */
   padding-bottom: calc(var(--composer-h) + 24px);
   display: flex;
   flex-direction: column;
   gap: 14px;
   background: var(--surface-2);
+  direction: ltr; /* Ensure scrollbar stays on the right */
+}
+
+/* ================== CUSTOM SCROLLBAR STYLES ================== */
+
+/* WebKit Browsers (Chrome, Safari, Edge) */
+.thread::-webkit-scrollbar {
+  width: 6px; /* Smaller width */
+}
+
+.thread::-webkit-scrollbar-track {
+  background: transparent; /* Hide the track completely */
+}
+
+.thread::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2); /* Semi-transparent thumb */
+  border-radius: 3px;
+  border: none;
+}
+
+.thread::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3); /* Slightly more visible on hover */
+}
+
+.thread::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.4); /* More visible when dragging */
+}
+
+/* Firefox */
+.thread {
+  scrollbar-width: thin; /* Make it thin */
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent; /* thumb color, track color */
 }
 
 /* Chat Bubbles */
@@ -463,5 +497,17 @@ a {
 
   .sidebar-bottom {
     padding-bottom: 16px;
+  }
+
+  /* Mobile: Hide scrollbar completely on touch devices */
+  .thread::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+  
+  .thread {
+    scrollbar-width: none; /* Firefox mobile */
+    -ms-overflow-style: none; /* IE/Edge mobile */
+    padding-right: 12px; /* Reset padding on mobile */
   }
 }
