@@ -1,46 +1,140 @@
-/* Add these styles to your existing sidebar.css file */
+/* lucia-secure/frontend/src/styles/sidebar.css  (full file with menu + kebab + active chips) */
+:root{ --sidebar-width: 280px; }
 
-/* Enhanced slot button layout for title + folder display */
-.slot-btn {
+.sidebar{
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 14px;
   display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar h4{
+  margin: 8px 0 4px;
+  color: var(--muted);
+  font-weight: 600;
 }
 
+/* chips */
+.chips-wrap{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip{
+  display:inline-block; background: var(--surface-2);
+  padding:6px 10px; border-radius:999px;
+  border:1px solid var(--border); cursor:pointer;
+}
+.chip:hover{ border-color: var(--primary); color: var(--primary); }
+.chip.active{ border-color: var(--primary); color: var(--primary); }
+
+/* scrollable body + pinned footer */
+.sidebar-content{ display:flex; flex-direction:column; height:100%; min-height:0; }
+.sidebar-top{ flex:1; min-height:0; overflow:auto; padding-bottom:12px; }
+.sidebar-bottom{ margin-top:auto; }
+
+/* user footer */
+.user-footer{
+  margin-top:14px; padding:10px; border:1px solid var(--border);
+  background: var(--surface-2); border-radius: 12px;
+  display:flex; align-items:center; gap:10px; cursor:pointer;
+}
+.user-footer:hover{ border-color: var(--primary); }
+.user-footer.login{ background: var(--primary); color:#00131c; justify-content:center; font-weight:600; }
+.avatar{ width:28px; height:28px; border-radius:999px;
+  background: linear-gradient(180deg,var(--primary),var(--primary-600));
+  display:flex; align-items:center; justify-content:center; color:#00131c; font-weight:700;
+}
+.user-meta{ min-width:0; }
+.user-meta .name{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.user-meta .mail{ font-size:.8rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.caret{ margin-left:auto; color:var(--muted); }
+
+.user-menu{
+  margin-top:8px; border:1px solid var(--border); background:var(--surface-2);
+  border-radius:12px; overflow:hidden; box-shadow: var(--shadow-2);
+}
+.user-menu-item{ width:100%; text-align:left; padding:10px 12px; background:transparent; color:inherit; border:none; cursor:pointer; }
+.user-menu-item:hover{ background:rgba(255,255,255,.03); }
+.user-menu-item.danger{ color:#e63946; display:flex; align-items:center; gap:8px; }
+.user-menu-item.danger svg{ width:18px; height:18px; stroke:#e63946; }
+
+/* slots list */
+.slots-list{ display:grid; gap:8px; margin-top:8px; }
+.slot-btn{ width:100%; text-align:left; }
+.slot-btn[aria-current="page"]{ border-color: var(--primary); color: var(--primary); }
+
+/* row wrapper with kebab */
+.slot-row-wrapper{
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+.slot-title{ pointer-events: none; }
+.slot-folder{ margin-left: 6px; color: var(--muted); font-weight: 600; }
+
+/* kebab button */
+.kebab-btn{
+  appearance:none; border:1px solid var(--border); background: var(--surface-2);
+  color: var(--muted); width: 34px; height: 34px; border-radius: 10px;
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+}
+.kebab-btn:hover{ color: var(--primary); border-color: var(--primary); }
+
+/* dropdown menu for a slot */
+.slot-menu{
+  position: absolute;
+  right: 0; top: calc(100% + 6px);
+  min-width: 220px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow-2);
+  z-index: 40;
+  padding: 6px;
+}
+.menu-item{
+  width: 100%; text-align: left;
+  padding: 8px 10px; background: transparent; color: var(--text);
+  border: none; border-radius: 8px; cursor: pointer;
+}
+.menu-item:hover{ background: rgba(255,255,255,.04); }
+.menu-item.active{ background: rgba(0,194,255,.10); border: 1px solid rgba(0,194,255,.25); }
+.menu-item.danger{ color: #e63946; }
+.menu-item.danger:hover{ background: rgba(230,57,70,.12); }
+
+.menu-label{
+  font-size: .82rem; color: var(--muted);
+  padding: 4px 8px 6px; font-weight: 700;
+}
+.menu-sep{ height: 1px; background: var(--border); margin: 6px 2px; }
+
+/* mobile overlay behavior */
+@media (max-width:768px){
+  :root{ --header-h: 60px; }
+  .sidebar{
+    position: fixed;
+    left: 0; right: 0;
+    top: var(--header-h);
+    height: calc(100dvh - var(--header-h));
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    z-index: 999;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .sidebar.open{ transform: translateX(0); }
+  .sidebar-content{ height: 100%; min-height: 0; display:flex; flex-direction:column; overflow:hidden; }
+  .sidebar-top{ flex:1; min-height:0; overflow:auto; padding-bottom:12px; }
+}
+
+/* Add only these minimal styles to your existing sidebar.css file */
+
+/* Loading state for optimistic slot buttons */
 .slot-btn.loading {
   opacity: 0.6;
   pointer-events: none;
 }
 
-/* Slot title should be flexible and truncate */
-.slot-title {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
-
-/* Folder indicator styling */
-.slot-folder {
-  flex-shrink: 0;
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 500;
-  pointer-events: none;
-}
-
-.slot-folder:before {
-  content: "• ";
-  margin-right: 2px;
-}
-
-/* Menu animation */
+/* Simple animation for slot menu */
 .slot-menu {
   animation: menuSlideIn 0.15s ease-out;
 }
@@ -53,49 +147,5 @@
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* Loading skeleton for slots */
-.slots-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.slot-row {
-  height: 36px;
-  background: linear-gradient(90deg, var(--surface-2) 25%, rgba(0, 194, 255, 0.05) 50%, var(--surface-2) 75%);
-  background-size: 200% 100%;
-  border-radius: 8px;
-  animation: shimmer 1.5s infinite;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-/* Focus states for accessibility */
-.kebab-btn:focus-visible,
-.menu-item:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-/* Mobile adjustments */
-@media (max-width: 768px) {
-  .slot-menu {
-    right: -4px;
-    min-width: 200px;
-  }
-  
-  .menu-item {
-    padding: 10px 12px; /* Larger touch targets */
-  }
-  
-  .slot-folder {
-    font-size: 0.75rem;
   }
 }
