@@ -17,6 +17,7 @@ import EmailVerifyBanner from "../components/EmailVerifyBanner"
 import "../styles/limit.css"
 import "../styles/typing.css"
 import "../styles/thread-loading.css"
+import "../styles/lucia-listening.css" // New loading styles
 import "../styles/usage-indicator.css"
 import "../styles/chat-layout.css"
 import "../styles/login.css"
@@ -25,7 +26,7 @@ import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
-  "L.U.C.I.A. — Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they’re hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
+  "L.U.C.I.A. — Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
 
 export default function ChatPage() {
   const { user } = useAuthToken()
@@ -255,10 +256,10 @@ export default function ChatPage() {
 
       <div className="thread">
         {loadingThread ? (
-          <div className="thread-skeleton">
-            <div className="msg-skel"></div>
-            <div className="msg-skel me"></div>
-            <div className="msg-skel"></div>
+          <div className="lucia-listening">
+            <div className="lucia-spinner"></div>
+            <div className="lucia-listening-text">Lucia is listening...</div>
+            <div className="lucia-listening-subtext">Analyzing the conversation</div>
           </div>
         ) : msgs.length === 0 ? (
           <MessageBubble role="assistant">{DEFAULT_SYSTEM}</MessageBubble>
