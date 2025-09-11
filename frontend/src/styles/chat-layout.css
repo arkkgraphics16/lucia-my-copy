@@ -15,7 +15,7 @@
 }
 
 /* Desktop/tablet: center the Composer across the remaining area (window − sidebar) */
-@media (min-width: 1024px){     /* changed from 820px */
+@media (min-width: 820px){
   .composer-row{
     left: calc(
       var(--sidebar-width) + max(12px,
