@@ -1,12 +1,14 @@
 /* lucia-secure/frontend/src/styles/chat-layout.css */
 
-/* Max content width (chat column). Tweak 780–820px to taste. */
-:root{
+/* Content width and sidebar variables */
+:root {
   --content-w: 820px;
-  --sidebar-width: 260px; /* fallback if not defined elsewhere */
+  --sidebar-width: 280px;
 }
 
-/* Center the main thread and limit-banner */
+/* ================== DESKTOP/TABLET CENTERING ================== */
+
+/* Center the main thread and any limit banners */
 .thread,
 .limit-banner {
   max-width: var(--content-w);
@@ -14,9 +16,9 @@
   margin-right: auto;
 }
 
-/* Desktop/tablet: center the Composer across the remaining area (window − sidebar) */
-@media (min-width: 820px){
-  .composer-row{
+/* Desktop/tablet: center the Composer within the available space (viewport - sidebar) */
+@media (min-width: 820px) {
+  .composer-row {
     left: calc(
       var(--sidebar-width) + max(12px,
         ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
@@ -30,18 +32,102 @@
   }
 }
 
-/* Bottom usage chip (desktop only – hidden on mobile) */
+/* Bottom usage indicator chip (desktop only) */
 .usage-indicator.bottom-chip {
   max-width: var(--content-w);
   margin: 8px auto 0 auto;
 }
 
-/* Mobile: Composer already spans edges; hide the bottom counter chip */
-@media (max-width: 1023.98px){  /* changed from 819.98px */
-  .thread, .limit-banner {
+/* ================== TABLET BREAKPOINT ================== */
+@media (max-width: 1024px) and (min-width: 769px) {
+  :root {
+    --sidebar-width: 240px;
+  }
+  
+  .thread,
+  .limit-banner {
+    max-width: var(--content-w);
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+/* ================== MOBILE BREAKPOINT ================== */
+@media (max-width: 768px) {
+  /* Full width layout on mobile */
+  .thread,
+  .limit-banner {
     max-width: 100%;
     padding-left: 12px;
     padding-right: 12px;
   }
-  .usage-indicator.bottom-chip{ display: none; }
+  
+  /* Hide bottom usage chip on mobile */
+  .usage-indicator.bottom-chip {
+    display: none;
+  }
+  
+  /* Composer spans full width on mobile */
+  .composer-row {
+    left: auto;
+    right: auto;
+    position: relative;
+    max-width: 100%;
+  }
+  
+  /* Adjust thread padding for mobile composer */
+  .thread {
+    padding-bottom: calc(var(--composer-h, 72px) + 16px);
+  }
+}
+
+/* ================== RESPONSIVE CONTENT WIDTHS ================== */
+
+/* Very wide screens - increase content width slightly */
+@media (min-width: 1400px) {
+  :root {
+    --content-w: 900px;
+  }
+}
+
+/* Medium screens - reduce content width */
+@media (max-width: 1200px) and (min-width: 821px) {
+  :root {
+    --content-w: 760px;
+  }
+}
+
+/* Smaller tablets - further reduce content width */
+@media (max-width: 1024px) and (min-width: 769px) {
+  :root {
+    --content-w: 680px;
+  }
+}
+
+/* ================== SAFE AREA HANDLING ================== */
+
+/* Handle notch and safe areas on mobile devices */
+@media (max-width: 768px) {
+  .thread {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  
+  .composer-row {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+}
+
+/* ================== ACCESSIBILITY ================== */
+
+/* Ensure adequate spacing for touch targets on mobile */
+@media (max-width: 768px) {
+  .bubble {
+    margin-bottom: 12px;
+  }
+  
+  .bubble:last-child {
+    margin-bottom: 0;
+  }
 }
