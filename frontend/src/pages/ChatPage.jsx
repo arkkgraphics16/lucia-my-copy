@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react"
 import MessageBubble from "../components/MessageBubble"
 import Composer from "../components/Composer"
+import CourtesyPopup from "../components/CourtesyPopup" // New import
 import { onQuickPrompt } from "../lib/bus"
 import { useAuthToken } from "../hooks/useAuthToken"
 import {
@@ -21,12 +22,13 @@ import "../styles/lucia-listening.css" // New loading styles
 import "../styles/usage-indicator.css"
 import "../styles/chat-layout.css"
 import "../styles/login.css"
+import "../styles/courtesy-popup.css" // New import
 
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
-  "L.U.C.I.A. — Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
+  "L.U.C.I.A. – Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
 
 export default function ChatPage() {
   const { user } = useAuthToken()
@@ -37,6 +39,7 @@ export default function ChatPage() {
 
   const [capHit, setCapHit] = useState(false)
   const [remaining, setRemaining] = useState(null)
+  const [showCourtesy, setShowCourtesy] = useState(false) // New state
 
   const [system] = useState(DEFAULT_SYSTEM)
   const [loadingThread, setLoadingThread] = useState(false)
@@ -140,6 +143,25 @@ export default function ChatPage() {
     return uid
   }
 
+  // New function to handle courtesy acceptance
+  async function handleCourtesyAccept() {
+    setShowCourtesy(false)
+    // Update remaining count to show courtesy messages available
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      const profile = await getUserData(uid)
+      const used = profile?.exchanges_used ?? 0
+      const newLeft = Math.max(0, 12 - used)
+      setRemaining(newLeft)
+    }
+  }
+
+  // New function to handle courtesy decline
+  function handleCourtesyDecline() {
+    setShowCourtesy(false)
+    setCapHit(true)
+  }
+
   async function send() {
     const content = text.trim()
     if (!content) return
@@ -173,6 +195,13 @@ export default function ChatPage() {
         left = !courtesy ? Math.max(0, 10 - used) : Math.max(0, 12 - used)
       }
       setRemaining(left)
+
+      // Check if user hit the 10 message limit and hasn't used courtesy yet
+      if (!isPro && used === 10 && !courtesy && left === 0) {
+        setShowCourtesy(true)
+        setBusy(false)
+        return
+      }
 
       if (!isPro && left <= 0) {
         setCapHit(true)
@@ -213,9 +242,11 @@ export default function ChatPage() {
         const updated = await getUserData(uid)
         const newUsed = updated?.exchanges_used ?? used
         const newCourtesy = updated?.courtesy_used ?? courtesy
-        const newLeft = !newCourtesy ? 10 - newUsed : 12 - newUsed
+        const newLeft = !newCourtesy ? Math.max(0, 10 - newUsed) : Math.max(0, 12 - newUsed)
         setRemaining(newLeft)
-        if ((!newCourtesy && newUsed >= 10) || (newCourtesy && newUsed >= 12)) {
+        
+        // Check if they just hit the courtesy limit (12 messages total)
+        if (newCourtesy && newUsed >= 12) {
           setCapHit(true)
         }
       }
@@ -233,10 +264,40 @@ export default function ChatPage() {
     setBusy(false)
   }
 
+  // Calculate display values for usage indicator
+  const getUsageDisplay = () => {
+    if (remaining === null) return { current: 0, total: 10 }
+    
+    // If user hasn't used courtesy yet, show out of 10
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      // We need to determine if courtesy was used based on remaining count
+      // If remaining is calculated from 12, courtesy was used
+      const used = 10 - remaining // Assuming we're showing remaining from 10 initially
+      if (remaining <= 2 && remaining >= 0) {
+        // Likely in courtesy mode (showing remaining from 12)
+        return { current: 12 - remaining, total: 12 }
+      }
+      return { current: Math.max(0, 10 - remaining), total: 10 }
+    }
+    
+    return { current: 0, total: 10 }
+  }
+
+  const usageDisplay = getUsageDisplay()
+
   return (
     <>
       {showLogin && (
         <LoginForm onClose={() => setShowLogin(false)} onLogin={() => setShowLogin(false)} />
+      )}
+
+      {/* Courtesy Popup */}
+      {showCourtesy && (
+        <CourtesyPopup 
+          onAccept={handleCourtesyAccept}
+          onDecline={handleCourtesyDecline}
+        />
       )}
 
       {/* If logged in but not verified, show a small banner with "Resend" */}
@@ -281,7 +342,7 @@ export default function ChatPage() {
 
       <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
 
-      {remaining !== null && !capHit && (
+      {remaining !== null && !capHit && !showCourtesy && (
         <div
           className={
             "usage-indicator usage-indicator--sm " +
@@ -293,8 +354,10 @@ export default function ChatPage() {
           }
         >
           <span className="usage-indicator__dot"></span>
-          <span className="usage-indicator__count">{remaining}</span>
-          <span className="usage-indicator__label">messages left</span>
+          <span className="usage-indicator__count">
+            {usageDisplay.current}/{usageDisplay.total}
+          </span>
+          <span className="usage-indicator__label">messages used</span>
         </div>
       )}
     </>
