@@ -8,9 +8,14 @@ import { useAuthToken } from "../hooks/useAuthToken"
 import {
   auth,
   db,
-  ensureUser, getUserData,
+  ensureUser,
+  getUserData,
   createConversation,
-  listenMessages, addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
+  listenMessages,
+  addMessage,
+  bumpUpdatedAt,
+  incrementExchanges,
+  setConversationTitle
 } from "../firebase"
 import LoginForm from "../components/LoginForm"
 import EmailVerifyBanner from "../components/EmailVerifyBanner"
@@ -39,7 +44,7 @@ export default function ChatPage() {
   const [text, setText] = useState("")
   const [busy, setBusy] = useState(false)
 
-  // Live user profile doc
+  // Live user profile
   const [profile, setProfile] = useState(null)
 
   // UI flags
@@ -70,16 +75,12 @@ export default function ChatPage() {
         if (!isSignInWithEmailLink(auth, href)) return
 
         let email = window.localStorage.getItem("lucia-emailForSignIn") || ""
-        if (!email) {
-          email = window.prompt("Confirm your email for sign-in") || ""
-        }
+        if (!email) email = window.prompt("Confirm your email for sign-in") || ""
         if (!email) return
 
         await signInWithEmailLink(auth, email, href)
         window.localStorage.removeItem("lucia-emailForSignIn")
-        if (auth.currentUser?.uid) {
-          await ensureUser(auth.currentUser.uid)
-        }
+        if (auth.currentUser?.uid) await ensureUser(auth.currentUser.uid)
         setShowLogin(false)
 
         // Clean URL (drop Firebase query params but keep ?c)
@@ -146,44 +147,40 @@ export default function ChatPage() {
       await ensureUser(user.uid)
       const ref = doc(db, "users", user.uid)
       unsub = onSnapshot(ref, (snap) => {
-        const data = snap.exists() ? snap.data() : null
-        setProfile(data)
+        setProfile(snap.exists() ? snap.data() : null)
       })
     })()
     return () => unsub && unsub()
   }, [user?.uid])
 
-  // Derived quota state
+  // Derived quota
   const quota = useMemo(() => {
-    if (!profile) return { isPro: false, used: 0, courtesy: false, total: 10, remaining: null }
+    if (!profile) return { isPro: false, used: 0, courtesy: false, total: 10, remaining: 0 }
     const isPro = profile.tier === "pro"
     const used = profile.exchanges_used ?? 0
     const courtesy = !!profile.courtesy_used
-    const total = isPro ? Infinity : courtesy ? 12 : 10
+    const total = isPro ? Infinity : (courtesy ? 12 : 10)
     const remaining = isPro ? Infinity : Math.max(0, total - used)
     return { isPro, used, courtesy, total, remaining }
   }, [profile])
 
-  // gate + courtesy popup visibility follows live quota
+  // Show/Hide courtesy & cap banner based on live quota
   useEffect(() => {
     if (!quota || quota.isPro) {
       setShowCourtesy(false)
       setCapHit(false)
       return
     }
-    // At exactly 10 and not yet courtesy => show popup
     if (quota.used === 10 && !quota.courtesy) {
       setShowCourtesy(true)
       setCapHit(false)
       return
     }
-    // Over hard cap (12) => cap hit
     if (quota.courtesy && quota.used >= 12) {
       setShowCourtesy(false)
       setCapHit(true)
       return
     }
-    // Otherwise normal
     setCapHit(false)
   }, [quota])
 
@@ -202,15 +199,13 @@ export default function ChatPage() {
     try {
       const uid = auth.currentUser?.uid
       if (!uid) return setShowLogin(true)
-      // SINGLE legal write: 10→11 + courtesy_used:true
+      // LEGAL single write: 10→11 + courtesy_used:true
       await incrementExchanges(uid)
-      // live snapshot will refresh UI; keep popup closed
       setShowCourtesy(false)
     } catch (e) {
       console.error("Courtesy accept failed:", e)
     }
   }
-
   function handleCourtesyDecline() {
     setShowCourtesy(false)
     setCapHit(true)
@@ -238,17 +233,15 @@ export default function ChatPage() {
         await setConversationTitle(uid, cid, content.slice(0, 48))
       }
 
-      // Check limits using live profile/quota
+      // block at limits using live quota
       if (!quota.isPro) {
-        // At the 10th message with no courtesy -> prompt
         if (quota.used === 10 && !quota.courtesy) {
           setShowCourtesy(true)
           setBusy(false)
           return
         }
-        // If already at/over cap, stop send
-        const total = quota.courtesy ? 12 : 10
-        if (quota.used >= total) {
+        const hardTotal = quota.courtesy ? 12 : 10
+        if (quota.used >= hardTotal) {
           setCapHit(true)
           setBusy(false)
           return
@@ -282,13 +275,11 @@ export default function ChatPage() {
       await addMessage(uid, cid, "assistant", data.reply || "(no reply)")
       await bumpUpdatedAt(uid, cid)
 
-      // update quota counters for free tier
+      // count usage
       if (!quota.isPro) {
-        await incrementExchanges(uid) // includes courtesy flip automatically at 10
-        // live snapshot will update `profile` -> `quota` -> UI
+        await incrementExchanges(uid) // does the combined flip at 10
       }
     } catch (err) {
-      // swallow login-required error; otherwise log
       if (String(err?.message || "").toLowerCase() !== "login required") {
         console.error(err)
       }
@@ -301,10 +292,9 @@ export default function ChatPage() {
     setBusy(false)
   }
 
-  // Usage indicator numbers
+  // Usage indicator values
   const usageDisplay = useMemo(() => {
-    if (!profile) return { current: 0, total: 10 }
-    if (quota.isPro) return { current: 0, total: 0 } // hidden by CSS conditions below
+    if (!profile || quota.isPro) return null
     const total = quota.courtesy ? 12 : 10
     const current = Math.min(quota.used, total)
     return { current, total }
@@ -318,16 +308,14 @@ export default function ChatPage() {
 
       {/* Courtesy Popup */}
       {showCourtesy && (
-        <CourtesyPopup 
+        <CourtesyPopup
           onAccept={handleCourtesyAccept}
           onDecline={handleCourtesyDecline}
         />
       )}
 
-      {/* If logged in but not verified, show a small banner with "Resend" */}
-      {user && user.email && !user.emailVerified && (
-        <EmailVerifyBanner />
-      )}
+      {/* Email verify banner */}
+      {user && user.email && !user.emailVerified && <EmailVerifyBanner />}
 
       {capHit && (
         <div className="limit-banner" role="alert">
@@ -366,8 +354,8 @@ export default function ChatPage() {
 
       <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
 
-      {/* Usage indicator hidden when cap hit or courtesy prompt visible or PRO */}
-      {!quota.isPro && !capHit && !showCourtesy && (
+      {/* Usage indicator */}
+      {usageDisplay && !capHit && !showCourtesy && (
         <div
           className={
             "usage-indicator usage-indicator--sm " +
