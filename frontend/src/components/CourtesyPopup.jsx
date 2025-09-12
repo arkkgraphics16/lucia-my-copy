@@ -7,7 +7,6 @@ export default function CourtesyPopup({ onAccept, onDecline }) {
     <div className="courtesy-overlay">
       <div className="courtesy-modal">
         <div className="courtesy-header">
-          <div className="courtesy-icon">💝</div>
           <h2 className="courtesy-title">Courtesy Messages</h2>
         </div>
         
