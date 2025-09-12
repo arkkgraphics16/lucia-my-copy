@@ -1,12 +1,13 @@
 // lucia-secure/frontend/src/pages/ChatPage.jsx
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import MessageBubble from "../components/MessageBubble"
 import Composer from "../components/Composer"
-import CourtesyPopup from "../components/CourtesyPopup" // New import
+import CourtesyPopup from "../components/CourtesyPopup"
 import { onQuickPrompt } from "../lib/bus"
 import { useAuthToken } from "../hooks/useAuthToken"
 import {
   auth,
+  db,
   ensureUser, getUserData,
   createConversation,
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges, setConversationTitle
@@ -18,13 +19,14 @@ import EmailVerifyBanner from "../components/EmailVerifyBanner"
 import "../styles/limit.css"
 import "../styles/typing.css"
 import "../styles/thread-loading.css"
-import "../styles/lucia-listening.css" // New loading styles
+import "../styles/lucia-listening.css"
 import "../styles/usage-indicator.css"
 import "../styles/chat-layout.css"
 import "../styles/login.css"
-import "../styles/courtesy-popup.css" // New import
+import "../styles/courtesy-popup.css"
 
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
+import { doc, onSnapshot } from "firebase/firestore"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
@@ -37,13 +39,16 @@ export default function ChatPage() {
   const [text, setText] = useState("")
   const [busy, setBusy] = useState(false)
 
-  const [capHit, setCapHit] = useState(false)
-  const [remaining, setRemaining] = useState(null)
-  const [showCourtesy, setShowCourtesy] = useState(false) // New state
+  // Live user profile doc
+  const [profile, setProfile] = useState(null)
 
-  const [system] = useState(DEFAULT_SYSTEM)
+  // UI flags
+  const [capHit, setCapHit] = useState(false)
+  const [showCourtesy, setShowCourtesy] = useState(false)
   const [loadingThread, setLoadingThread] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
+
+  const [system] = useState(DEFAULT_SYSTEM)
 
   // conversation id from ?c=<id>
   const [conversationId, setConversationId] = useState(() => {
@@ -133,6 +138,55 @@ export default function ChatPage() {
     }
   }, [conversationId, user?.uid])
 
+  // Ensure user doc exists and subscribe live to /users/{uid}
+  useEffect(() => {
+    if (!user?.uid) return
+    let unsub = null
+    ;(async () => {
+      await ensureUser(user.uid)
+      const ref = doc(db, "users", user.uid)
+      unsub = onSnapshot(ref, (snap) => {
+        const data = snap.exists() ? snap.data() : null
+        setProfile(data)
+      })
+    })()
+    return () => unsub && unsub()
+  }, [user?.uid])
+
+  // Derived quota state
+  const quota = useMemo(() => {
+    if (!profile) return { isPro: false, used: 0, courtesy: false, total: 10, remaining: null }
+    const isPro = profile.tier === "pro"
+    const used = profile.exchanges_used ?? 0
+    const courtesy = !!profile.courtesy_used
+    const total = isPro ? Infinity : courtesy ? 12 : 10
+    const remaining = isPro ? Infinity : Math.max(0, total - used)
+    return { isPro, used, courtesy, total, remaining }
+  }, [profile])
+
+  // gate + courtesy popup visibility follows live quota
+  useEffect(() => {
+    if (!quota || quota.isPro) {
+      setShowCourtesy(false)
+      setCapHit(false)
+      return
+    }
+    // At exactly 10 and not yet courtesy => show popup
+    if (quota.used === 10 && !quota.courtesy) {
+      setShowCourtesy(true)
+      setCapHit(false)
+      return
+    }
+    // Over hard cap (12) => cap hit
+    if (quota.courtesy && quota.used >= 12) {
+      setShowCourtesy(false)
+      setCapHit(true)
+      return
+    }
+    // Otherwise normal
+    setCapHit(false)
+  }, [quota])
+
   async function ensureLogin() {
     if (!auth.currentUser) {
       setShowLogin(true)
@@ -143,20 +197,20 @@ export default function ChatPage() {
     return uid
   }
 
-  // New function to handle courtesy acceptance
+  // Courtesy handlers
   async function handleCourtesyAccept() {
-    setShowCourtesy(false)
-    // Update remaining count to show courtesy messages available
-    const uid = auth.currentUser?.uid
-    if (uid) {
-      const profile = await getUserData(uid)
-      const used = profile?.exchanges_used ?? 0
-      const newLeft = Math.max(0, 12 - used)
-      setRemaining(newLeft)
+    try {
+      const uid = auth.currentUser?.uid
+      if (!uid) return setShowLogin(true)
+      // SINGLE legal write: 10→11 + courtesy_used:true
+      await incrementExchanges(uid)
+      // live snapshot will refresh UI; keep popup closed
+      setShowCourtesy(false)
+    } catch (e) {
+      console.error("Courtesy accept failed:", e)
     }
   }
 
-  // New function to handle courtesy decline
   function handleCourtesyDecline() {
     setShowCourtesy(false)
     setCapHit(true)
@@ -184,29 +238,21 @@ export default function ChatPage() {
         await setConversationTitle(uid, cid, content.slice(0, 48))
       }
 
-      // check limits
-      const profile = await getUserData(uid)
-      const used = profile?.exchanges_used ?? 0
-      const courtesy = profile?.courtesy_used ?? false
-      const isPro = profile?.tier === "pro"
-
-      let left = null
-      if (!isPro) {
-        left = !courtesy ? Math.max(0, 10 - used) : Math.max(0, 12 - used)
-      }
-      setRemaining(left)
-
-      // Check if user hit the 10 message limit and hasn't used courtesy yet
-      if (!isPro && used === 10 && !courtesy && left === 0) {
-        setShowCourtesy(true)
-        setBusy(false)
-        return
-      }
-
-      if (!isPro && left <= 0) {
-        setCapHit(true)
-        setBusy(false)
-        return
+      // Check limits using live profile/quota
+      if (!quota.isPro) {
+        // At the 10th message with no courtesy -> prompt
+        if (quota.used === 10 && !quota.courtesy) {
+          setShowCourtesy(true)
+          setBusy(false)
+          return
+        }
+        // If already at/over cap, stop send
+        const total = quota.courtesy ? 12 : 10
+        if (quota.used >= total) {
+          setCapHit(true)
+          setBusy(false)
+          return
+        }
       }
 
       // push user message
@@ -237,18 +283,9 @@ export default function ChatPage() {
       await bumpUpdatedAt(uid, cid)
 
       // update quota counters for free tier
-      if (!isPro) {
-        await incrementExchanges(uid)
-        const updated = await getUserData(uid)
-        const newUsed = updated?.exchanges_used ?? used
-        const newCourtesy = updated?.courtesy_used ?? courtesy
-        const newLeft = !newCourtesy ? Math.max(0, 10 - newUsed) : Math.max(0, 12 - newUsed)
-        setRemaining(newLeft)
-        
-        // Check if they just hit the courtesy limit (12 messages total)
-        if (newCourtesy && newUsed >= 12) {
-          setCapHit(true)
-        }
+      if (!quota.isPro) {
+        await incrementExchanges(uid) // includes courtesy flip automatically at 10
+        // live snapshot will update `profile` -> `quota` -> UI
       }
     } catch (err) {
       // swallow login-required error; otherwise log
@@ -264,27 +301,14 @@ export default function ChatPage() {
     setBusy(false)
   }
 
-  // Calculate display values for usage indicator
-  const getUsageDisplay = () => {
-    if (remaining === null) return { current: 0, total: 10 }
-    
-    // If user hasn't used courtesy yet, show out of 10
-    const uid = auth.currentUser?.uid
-    if (uid) {
-      // We need to determine if courtesy was used based on remaining count
-      // If remaining is calculated from 12, courtesy was used
-      const used = 10 - remaining // Assuming we're showing remaining from 10 initially
-      if (remaining <= 2 && remaining >= 0) {
-        // Likely in courtesy mode (showing remaining from 12)
-        return { current: 12 - remaining, total: 12 }
-      }
-      return { current: Math.max(0, 10 - remaining), total: 10 }
-    }
-    
-    return { current: 0, total: 10 }
-  }
-
-  const usageDisplay = getUsageDisplay()
+  // Usage indicator numbers
+  const usageDisplay = useMemo(() => {
+    if (!profile) return { current: 0, total: 10 }
+    if (quota.isPro) return { current: 0, total: 0 } // hidden by CSS conditions below
+    const total = quota.courtesy ? 12 : 10
+    const current = Math.min(quota.used, total)
+    return { current, total }
+  }, [profile, quota])
 
   return (
     <>
@@ -342,13 +366,14 @@ export default function ChatPage() {
 
       <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
 
-      {remaining !== null && !capHit && !showCourtesy && (
+      {/* Usage indicator hidden when cap hit or courtesy prompt visible or PRO */}
+      {!quota.isPro && !capHit && !showCourtesy && (
         <div
           className={
             "usage-indicator usage-indicator--sm " +
-            (remaining > 2
+            (quota.remaining > 2
               ? "usage-indicator--ok"
-              : remaining > 0
+              : quota.remaining > 0
               ? "usage-indicator--warn"
               : "usage-indicator--bad")
           }
