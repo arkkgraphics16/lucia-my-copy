@@ -164,6 +164,8 @@ function listenMessages(uid, cid, cb) {
           } catch (e) {
             // If decryption fails, show a placeholder rather than crashing UI
             content = '[Cannot decrypt message on this device]';
+            // You may log this if needed
+            // console.warn('Decrypt failed:', e);
           }
         } else {
           // Unknown shape; keep it safely empty
@@ -227,7 +229,9 @@ async function incrementExchanges(uid) {
   await updateDoc(ref, update);
 }
 
-// ---- NEW: courtesy flag helper (simple setter) ----
+// ---- NEW: courtesy flag helper (admin / debug) ----
+// NOTE: Under your "tight" rules, calling this alone from the client is blocked.
+// Use incrementExchanges(uid) for the 10→11 courtesy bump.
 async function markCourtesyUsed(uid) {
   const ref = doc(db, 'users', uid);
   await updateDoc(ref, {
@@ -264,6 +268,5 @@ export {
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges,
   setConversationTitle, softDeleteConversation, setConversationFolder,
   registerWithEmail, loginWithEmail,
-  // NEW export
   markCourtesyUsed
 };
