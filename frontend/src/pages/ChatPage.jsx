@@ -36,14 +36,12 @@ const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
   "L.U.C.I.A. – Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
 
-/** -----------------------------------------------------------------------
- *  DATA HARDENING
- *  Normalize the user document so rules comparisons don't fail on type.
- *  Ensures:
- *    - tier: string ("free" by default)
- *    - exchanges_used: number (0 by default)
- *    - courtesy_used: boolean (false by default)
- *  --------------------------------------------------------------------- */
+/* ------------------------------ DATA HARDENING ------------------------------ */
+/** Normalize only when a field is MISSING or WRONG TYPE. Never re-write equal values.
+ *  - tier: string ("free" default)
+ *  - exchanges_used: number (0 default)
+ *  - courtesy_used: boolean (false default; preserves string 'true' → true, 'false' → false)
+ */
 async function normalizeUserDoc(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
@@ -52,19 +50,29 @@ async function normalizeUserDoc(uid) {
     const cur = snap.data() || {}
     const next = {}
 
-    // tier → string
-    if (typeof cur.tier !== "string") next.tier = String(cur.tier || "free")
-
-    // exchanges_used → number
-    if (typeof cur.exchanges_used !== "number") {
-      const n = Number(cur.exchanges_used ?? 0)
-      next.exchanges_used = Number.isFinite(n) ? n : 0
+    // tier
+    if (typeof cur.tier !== "string") {
+      next.tier = String(cur.tier ?? "free")
     }
 
-    // courtesy_used → boolean
+    // exchanges_used
+    if (typeof cur.exchanges_used !== "number") {
+      const n = Number(cur.exchanges_used ?? 0)
+      if (!Number.isFinite(n)) next.exchanges_used = 0
+      else next.exchanges_used = n
+    }
+
+    // courtesy_used
     if (typeof cur.courtesy_used !== "boolean") {
-      // coerce "false"/"true" strings or undefined
-      next.courtesy_used = !!cur.courtesy_used && String(cur.courtesy_used) !== "false" ? true : false
+      // Only set when not boolean; preserve truthy 'true' string
+      const raw = cur.courtesy_used
+      let coerced = false
+      if (typeof raw === "string") {
+        coerced = raw.toLowerCase() === "true"
+      } else {
+        coerced = !!raw
+      }
+      next.courtesy_used = coerced
     }
 
     if (Object.keys(next).length > 0) {
@@ -73,11 +81,8 @@ async function normalizeUserDoc(uid) {
   })
 }
 
-/** -----------------------------------------------------------------------
- *  COURTESY ACCEPT
- *  Must atomically write exchanges_used: 11 AND courtesy_used: true
- *  Only valid when tier=free, used===10, courtesy_used===false (after normalize)
- *  --------------------------------------------------------------------- */
+/* ------------------------------ COURTESY ACCEPT ----------------------------- */
+/** Must atomically write: exchanges_used: 11 AND courtesy_used: true */
 async function acceptCourtesy(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
@@ -89,7 +94,7 @@ async function acceptCourtesy(uid) {
     const used = typeof cur.exchanges_used === "number" ? cur.exchanges_used : Number(cur.exchanges_used ?? 0)
     const courtesy = typeof cur.courtesy_used === "boolean"
       ? cur.courtesy_used
-      : (!!cur.courtesy_used && String(cur.courtesy_used) !== "false")
+      : (typeof cur.courtesy_used === "string" ? cur.courtesy_used.toLowerCase() === "true" : !!cur.courtesy_used)
 
     if (tier === "free" && used === 10 && !courtesy) {
       tx.update(ref, { exchanges_used: 11, courtesy_used: true })
@@ -99,14 +104,8 @@ async function acceptCourtesy(uid) {
   })
 }
 
-/** -----------------------------------------------------------------------
- *  SAFE USAGE INCREMENT
- *  Mirrors the rule branches exactly:
- *    PRO: +1
- *    FREE: used<10 → +1
- *    FREE: used===10 && !courtesy → 11 + courtesy=true (atomic)
- *    FREE: courtesy=true && used<12 → +1
- *  --------------------------------------------------------------------- */
+/* --------------------------- SAFE USAGE INCREMENT --------------------------- */
+/** Mirrors your rules precisely. */
 async function safeIncrementUsage(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
@@ -118,7 +117,7 @@ async function safeIncrementUsage(uid) {
     const used = typeof cur.exchanges_used === "number" ? cur.exchanges_used : Number(cur.exchanges_used ?? 0)
     const courtesy = typeof cur.courtesy_used === "boolean"
       ? cur.courtesy_used
-      : (!!cur.courtesy_used && String(cur.courtesy_used) !== "false")
+      : (typeof cur.courtesy_used === "string" ? cur.courtesy_used.toLowerCase() === "true" : !!cur.courtesy_used)
 
     if (tier === "pro") {
       tx.update(ref, { exchanges_used: used + 1 })
@@ -239,13 +238,12 @@ export default function ChatPage() {
     }
   }, [conversationId, user?.uid])
 
-  // Ensure user doc exists, normalize it, and subscribe live to /users/{uid}
+  // Ensure user doc exists, normalize it once, and subscribe live to /users/{uid}
   useEffect(() => {
     if (!user?.uid) return
     let unsub = null
     ;(async () => {
       await ensureUser(user.uid)
-      // 🔧 Harden the document once after ensure
       try { await normalizeUserDoc(user.uid) } catch (e) { console.warn("normalizeUserDoc:", e) }
 
       const ref = doc(db, "users", user.uid)
@@ -263,7 +261,7 @@ export default function ChatPage() {
     const used = typeof profile.exchanges_used === "number" ? profile.exchanges_used : Number(profile.exchanges_used ?? 0)
     const courtesy = typeof profile.courtesy_used === "boolean"
       ? profile.courtesy_used
-      : (!!profile.courtesy_used && String(profile.courtesy_used) !== "false")
+      : (typeof profile.courtesy_used === "string" ? profile.courtesy_used.toLowerCase() === "true" : !!profile.courtesy_used)
     const total = isPro ? Infinity : (courtesy ? 12 : 10)
     const remaining = isPro ? Infinity : Math.max(0, total - used)
     return { isPro, used, courtesy, total, remaining }
@@ -305,7 +303,7 @@ export default function ChatPage() {
       const uid = auth.currentUser?.uid
       if (!uid) return setShowLogin(true)
 
-      // Normalize again right before the atomic write, to satisfy rules exactly
+      // Re-check but only normalize if types are wrong/missing (won't write false→false)
       await normalizeUserDoc(uid)
 
       // LEGAL single write: 10→11 + courtesy_used:true
