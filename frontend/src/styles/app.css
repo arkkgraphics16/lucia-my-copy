@@ -510,4 +510,29 @@ a {
     -ms-overflow-style: none; /* IE/Edge mobile */
     padding-right: 12px; /* Reset padding on mobile */
   }
+
+  .thread { display: flex; flex-direction: column; } /* already there, safe to keep */
+
+    .bubble.assistant {
+      /* stay on the LEFT across desktop & mobile */
+      align-self: flex-start;
+      margin-left: 0;
+      margin-right: auto;
+    }
+
+    .bubble.user {
+      /* stay on the RIGHT across desktop & mobile */
+      align-self: flex-end;
+      margin-left: auto;
+      margin-right: 0;
+    }
+
+    /* Keep your current widths; these are fine */
+    @media (max-width: 768px) {
+      .bubble.assistant,
+      .bubble.user {
+        max-width: 90%;
+      }
+    }
+    
 }
