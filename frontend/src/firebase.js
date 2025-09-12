@@ -219,9 +219,13 @@ async function incrementExchanges(uid) {
     if (used < 10) {
       update.exchanges_used = increment(1);
     } else if (used === 10 && !courtesy) {
-      update.exchanges_used = increment(1);
+      // Set exact values instead of using increment for courtesy transition
+      update.exchanges_used = 11;
       update.courtesy_used = true;
-    } else if (courtesy && used < 12) {
+    } else if (courtesy && used === 10) {
+      // Handle recovery case: courtesy was set but still at 10
+      update.exchanges_used = 11;
+    } else if (courtesy && used >= 11 && used < 12) {
       update.exchanges_used = increment(1);
     }
   }
