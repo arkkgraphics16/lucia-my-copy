@@ -164,8 +164,6 @@ function listenMessages(uid, cid, cb) {
           } catch (e) {
             // If decryption fails, show a placeholder rather than crashing UI
             content = '[Cannot decrypt message on this device]';
-            // You may log this if needed
-            // console.warn('Decrypt failed:', e);
           }
         } else {
           // Unknown shape; keep it safely empty
@@ -229,6 +227,15 @@ async function incrementExchanges(uid) {
   await updateDoc(ref, update);
 }
 
+// ---- NEW: courtesy flag helper (simple setter) ----
+async function markCourtesyUsed(uid) {
+  const ref = doc(db, 'users', uid);
+  await updateDoc(ref, {
+    courtesy_used: true,
+    updatedAt: serverTimestamp()
+  });
+}
+
 async function setConversationTitle(uid, cid, title) {
   await updateDoc(doc(db, 'users', uid, 'conversations', cid), {
     title, updatedAt: serverTimestamp()
@@ -256,5 +263,7 @@ export {
   newConversationId, createConversationWithId,
   listenMessages, addMessage, bumpUpdatedAt, incrementExchanges,
   setConversationTitle, softDeleteConversation, setConversationFolder,
-  registerWithEmail, loginWithEmail
+  registerWithEmail, loginWithEmail,
+  // NEW export
+  markCourtesyUsed
 };
