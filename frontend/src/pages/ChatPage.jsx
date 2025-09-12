@@ -30,16 +30,54 @@ import "../styles/login.css"
 import "../styles/courtesy-popup.css"
 
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
-import { doc, onSnapshot, runTransaction } from "firebase/firestore"
+import { doc, onSnapshot, getDoc, runTransaction } from "firebase/firestore"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
   "L.U.C.I.A. – Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
 
-/**
- * Transaction: acceptCourtesy
- * Rules require an atomic 10 -> 11 AND courtesy_used: false -> true
- */
+/** -----------------------------------------------------------------------
+ *  DATA HARDENING
+ *  Normalize the user document so rules comparisons don't fail on type.
+ *  Ensures:
+ *    - tier: string ("free" by default)
+ *    - exchanges_used: number (0 by default)
+ *    - courtesy_used: boolean (false by default)
+ *  --------------------------------------------------------------------- */
+async function normalizeUserDoc(uid) {
+  const ref = doc(db, "users", uid)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) return
+    const cur = snap.data() || {}
+    const next = {}
+
+    // tier → string
+    if (typeof cur.tier !== "string") next.tier = String(cur.tier || "free")
+
+    // exchanges_used → number
+    if (typeof cur.exchanges_used !== "number") {
+      const n = Number(cur.exchanges_used ?? 0)
+      next.exchanges_used = Number.isFinite(n) ? n : 0
+    }
+
+    // courtesy_used → boolean
+    if (typeof cur.courtesy_used !== "boolean") {
+      // coerce "false"/"true" strings or undefined
+      next.courtesy_used = !!cur.courtesy_used && String(cur.courtesy_used) !== "false" ? true : false
+    }
+
+    if (Object.keys(next).length > 0) {
+      tx.update(ref, next)
+    }
+  })
+}
+
+/** -----------------------------------------------------------------------
+ *  COURTESY ACCEPT
+ *  Must atomically write exchanges_used: 11 AND courtesy_used: true
+ *  Only valid when tier=free, used===10, courtesy_used===false (after normalize)
+ *  --------------------------------------------------------------------- */
 async function acceptCourtesy(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
@@ -47,11 +85,12 @@ async function acceptCourtesy(uid) {
     if (!snap.exists()) throw new Error("User doc missing")
     const cur = snap.data() || {}
 
-    const tier = cur.tier || "free"
-    const used = cur.exchanges_used ?? 0
-    const courtesy = !!cur.courtesy_used
+    const tier = typeof cur.tier === "string" ? cur.tier : "free"
+    const used = typeof cur.exchanges_used === "number" ? cur.exchanges_used : Number(cur.exchanges_used ?? 0)
+    const courtesy = typeof cur.courtesy_used === "boolean"
+      ? cur.courtesy_used
+      : (!!cur.courtesy_used && String(cur.courtesy_used) !== "false")
 
-    // Only allow on FREE at exactly 10 and not yet used
     if (tier === "free" && used === 10 && !courtesy) {
       tx.update(ref, { exchanges_used: 11, courtesy_used: true })
     } else {
@@ -60,15 +99,14 @@ async function acceptCourtesy(uid) {
   })
 }
 
-/**
- * Transaction: safeIncrementUsage
- * Mirrors your rules:
- * - PRO: +1 always
- * - FREE: <10 -> +1
- * - FREE: at 10 and courtesy=false -> flip to 11 + courtesy=true
- * - FREE: courtesy=true and <12 -> +1
- * - Else: throw (limit reached)
- */
+/** -----------------------------------------------------------------------
+ *  SAFE USAGE INCREMENT
+ *  Mirrors the rule branches exactly:
+ *    PRO: +1
+ *    FREE: used<10 → +1
+ *    FREE: used===10 && !courtesy → 11 + courtesy=true (atomic)
+ *    FREE: courtesy=true && used<12 → +1
+ *  --------------------------------------------------------------------- */
 async function safeIncrementUsage(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
@@ -76,20 +114,20 @@ async function safeIncrementUsage(uid) {
     if (!snap.exists()) throw new Error("User doc missing")
     const cur = snap.data() || {}
 
-    const tier = cur.tier || "free"
-    const used = cur.exchanges_used ?? 0
-    const courtesy = !!cur.courtesy_used
+    const tier = typeof cur.tier === "string" ? cur.tier : "free"
+    const used = typeof cur.exchanges_used === "number" ? cur.exchanges_used : Number(cur.exchanges_used ?? 0)
+    const courtesy = typeof cur.courtesy_used === "boolean"
+      ? cur.courtesy_used
+      : (!!cur.courtesy_used && String(cur.courtesy_used) !== "false")
 
     if (tier === "pro") {
       tx.update(ref, { exchanges_used: used + 1 })
       return
     }
 
-    // FREE paths
     if (used < 10) {
       tx.update(ref, { exchanges_used: used + 1 })
     } else if (used === 10 && !courtesy) {
-      // atomic courtesy flip allowed by rules
       tx.update(ref, { exchanges_used: 11, courtesy_used: true })
     } else if (courtesy && used < 12) {
       tx.update(ref, { exchanges_used: used + 1 })
@@ -201,12 +239,15 @@ export default function ChatPage() {
     }
   }, [conversationId, user?.uid])
 
-  // Ensure user doc exists and subscribe live to /users/{uid}
+  // Ensure user doc exists, normalize it, and subscribe live to /users/{uid}
   useEffect(() => {
     if (!user?.uid) return
     let unsub = null
     ;(async () => {
       await ensureUser(user.uid)
+      // 🔧 Harden the document once after ensure
+      try { await normalizeUserDoc(user.uid) } catch (e) { console.warn("normalizeUserDoc:", e) }
+
       const ref = doc(db, "users", user.uid)
       unsub = onSnapshot(ref, (snap) => {
         setProfile(snap.exists() ? snap.data() : null)
@@ -219,8 +260,10 @@ export default function ChatPage() {
   const quota = useMemo(() => {
     if (!profile) return { isPro: false, used: 0, courtesy: false, total: 10, remaining: 0 }
     const isPro = profile.tier === "pro"
-    const used = profile.exchanges_used ?? 0
-    const courtesy = !!profile.courtesy_used
+    const used = typeof profile.exchanges_used === "number" ? profile.exchanges_used : Number(profile.exchanges_used ?? 0)
+    const courtesy = typeof profile.courtesy_used === "boolean"
+      ? profile.courtesy_used
+      : (!!profile.courtesy_used && String(profile.courtesy_used) !== "false")
     const total = isPro ? Infinity : (courtesy ? 12 : 10)
     const remaining = isPro ? Infinity : Math.max(0, total - used)
     return { isPro, used, courtesy, total, remaining }
@@ -261,6 +304,10 @@ export default function ChatPage() {
     try {
       const uid = auth.currentUser?.uid
       if (!uid) return setShowLogin(true)
+
+      // Normalize again right before the atomic write, to satisfy rules exactly
+      await normalizeUserDoc(uid)
+
       // LEGAL single write: 10→11 + courtesy_used:true
       await acceptCourtesy(uid)
       setShowCourtesy(false)
@@ -328,13 +375,13 @@ export default function ChatPage() {
       try { data = JSON.parse(bodyText) } catch { data = {} }
 
       if (!res.ok || data?.ok !== true) {
-        await addMessage(uid, cid, `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
+        await addMessage(uid, cid, "assistant", `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
         await bumpUpdatedAt(uid, cid)
         setBusy(false)
         return
       }
 
-      await addMessage(uid, cid, data.reply || "(no reply)")
+      await addMessage(uid, cid, "assistant", data.reply || "(no reply)")
       await bumpUpdatedAt(uid, cid)
 
       // count usage (transactional and rule-compliant)
