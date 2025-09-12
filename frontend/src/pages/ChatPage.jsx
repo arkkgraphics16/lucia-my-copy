@@ -14,7 +14,6 @@ import {
   listenMessages,
   addMessage,
   bumpUpdatedAt,
-  incrementExchanges,
   setConversationTitle
 } from "../firebase"
 import LoginForm from "../components/LoginForm"
@@ -31,11 +30,74 @@ import "../styles/login.css"
 import "../styles/courtesy-popup.css"
 
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
-import { doc, onSnapshot } from "firebase/firestore"
+import { doc, onSnapshot, runTransaction } from "firebase/firestore"
 
 const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
 const DEFAULT_SYSTEM =
   "L.U.C.I.A. – Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
+
+/**
+ * Transaction: acceptCourtesy
+ * Rules require an atomic 10 -> 11 AND courtesy_used: false -> true
+ */
+async function acceptCourtesy(uid) {
+  const ref = doc(db, "users", uid)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error("User doc missing")
+    const cur = snap.data() || {}
+
+    const tier = cur.tier || "free"
+    const used = cur.exchanges_used ?? 0
+    const courtesy = !!cur.courtesy_used
+
+    // Only allow on FREE at exactly 10 and not yet used
+    if (tier === "free" && used === 10 && !courtesy) {
+      tx.update(ref, { exchanges_used: 11, courtesy_used: true })
+    } else {
+      throw new Error("Courtesy not available")
+    }
+  })
+}
+
+/**
+ * Transaction: safeIncrementUsage
+ * Mirrors your rules:
+ * - PRO: +1 always
+ * - FREE: <10 -> +1
+ * - FREE: at 10 and courtesy=false -> flip to 11 + courtesy=true
+ * - FREE: courtesy=true and <12 -> +1
+ * - Else: throw (limit reached)
+ */
+async function safeIncrementUsage(uid) {
+  const ref = doc(db, "users", uid)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error("User doc missing")
+    const cur = snap.data() || {}
+
+    const tier = cur.tier || "free"
+    const used = cur.exchanges_used ?? 0
+    const courtesy = !!cur.courtesy_used
+
+    if (tier === "pro") {
+      tx.update(ref, { exchanges_used: used + 1 })
+      return
+    }
+
+    // FREE paths
+    if (used < 10) {
+      tx.update(ref, { exchanges_used: used + 1 })
+    } else if (used === 10 && !courtesy) {
+      // atomic courtesy flip allowed by rules
+      tx.update(ref, { exchanges_used: 11, courtesy_used: true })
+    } else if (courtesy && used < 12) {
+      tx.update(ref, { exchanges_used: used + 1 })
+    } else {
+      throw new Error("Free limit reached")
+    }
+  })
+}
 
 export default function ChatPage() {
   const { user } = useAuthToken()
@@ -200,7 +262,7 @@ export default function ChatPage() {
       const uid = auth.currentUser?.uid
       if (!uid) return setShowLogin(true)
       // LEGAL single write: 10→11 + courtesy_used:true
-      await incrementExchanges(uid)
+      await acceptCourtesy(uid)
       setShowCourtesy(false)
     } catch (e) {
       console.error("Courtesy accept failed:", e)
@@ -266,18 +328,18 @@ export default function ChatPage() {
       try { data = JSON.parse(bodyText) } catch { data = {} }
 
       if (!res.ok || data?.ok !== true) {
-        await addMessage(uid, cid, "assistant", `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
+        await addMessage(uid, cid, `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
         await bumpUpdatedAt(uid, cid)
         setBusy(false)
         return
       }
 
-      await addMessage(uid, cid, "assistant", data.reply || "(no reply)")
+      await addMessage(uid, cid, data.reply || "(no reply)")
       await bumpUpdatedAt(uid, cid)
 
-      // count usage
+      // count usage (transactional and rule-compliant)
       if (!quota.isPro) {
-        await incrementExchanges(uid) // does the combined flip at 10
+        await safeIncrementUsage(uid)
       }
     } catch (err) {
       if (String(err?.message || "").toLowerCase() !== "login required") {
