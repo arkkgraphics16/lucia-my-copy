@@ -8,19 +8,17 @@
 
 /* ================== DESKTOP/TABLET CENTERING ================== */
 
-/* MODIFIED: Only center user bubbles and limit banners, not assistant bubbles */
+/* Center the thread container */
 .thread {
   max-width: var(--content-w);
   margin-left: auto;
   margin-right: auto;
 }
 
-/* NEW: Allow assistant bubbles to break out and use full available space */
+/* Keep both user and assistant bubbles within reasonable bounds */
 .bubble.assistant {
-  width: calc(100vw - var(--sidebar-width) - 48px) !important; /* Full width minus sidebar and padding */
-  max-width: none !important;
-  margin-left: calc(-1 * max(12px, ((100vw - var(--sidebar-width)) - var(--content-w)) / 2)) !important;
-  margin-right: calc(-1 * max(12px, ((100vw - var(--sidebar-width)) - var(--content-w)) / 2)) !important;
+  max-width: 85%; /* Reasonable max width instead of full screen */
+  margin-right: auto; /* Left-align assistant bubbles */
 }
 
 /* Keep user bubbles within content width and right-aligned */
@@ -70,11 +68,9 @@
     padding-right: 20px;
   }
   
-  /* Adjust assistant bubble width for tablet */
+  /* Keep assistant bubbles reasonable on tablet */
   .bubble.assistant {
-    width: calc(100vw - var(--sidebar-width) - 40px) !important;
-    margin-left: calc(-1 * max(20px, ((100vw - var(--sidebar-width)) - var(--content-w)) / 2)) !important;
-    margin-right: calc(-1 * max(20px, ((100vw - var(--sidebar-width)) - var(--content-w)) / 2)) !important;
+    max-width: 85%;
   }
 }
 
@@ -88,10 +84,9 @@
     padding-right: 12px;
   }
   
-  /* Mobile: Assistant bubbles use full content width */
+  /* Mobile: Assistant bubbles use most of the width */
   .bubble.assistant {
-    width: 100% !important;
-    max-width: none !important;
+    max-width: 90%;
   }
   
   /* Hide bottom usage chip on mobile */
