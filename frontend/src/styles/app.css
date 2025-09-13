@@ -261,7 +261,7 @@ a {
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent; /* thumb color, track color */
 }
 
-/* Chat Bubbles */
+/* Chat Bubbles - RESPONSIVE POSITIONING */
 .bubble {
   padding: 14px 16px;
   border-radius: 16px;
@@ -270,17 +270,58 @@ a {
   animation: fadeUp 0.18s ease;
 }
 
-/* FIX: consistent max-width for both roles */
-.bubble.assistant {
-  background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
-  max-width: 75%;
+/* ================== DESKTOP (1025px and up) ================== */
+@media (min-width: 1025px) {
+  .bubble.assistant {
+    background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
+    max-width: 75%;
+    margin-left: 0;
+    margin-right: auto; /* Left side */
+  }
+
+  .bubble.user {
+    background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
+    border-color: #0e7aa5;
+    max-width: 65%;
+    margin-left: auto;
+    margin-right: 0; /* Right side */
+  }
 }
 
-.bubble.user {
-  background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
-  border-color: #0e7aa5;
-  margin-left: auto;
-  max-width: 75%;
+/* ================== TABLET (769px - 1024px) ================== */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .bubble.assistant {
+    background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
+    max-width: 80%;
+    margin-left: 0;
+    margin-right: auto; /* Left side */
+  }
+
+  .bubble.user {
+    background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
+    border-color: #0e7aa5;
+    max-width: 70%;
+    margin-left: auto;
+    margin-right: 0; /* Right side */
+  }
+}
+
+/* ================== MOBILE (768px and below) ================== */
+@media (max-width: 768px) {
+  .bubble.assistant {
+    background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
+    max-width: 85%;
+    margin-left: 0;
+    margin-right: auto; /* Left side */
+  }
+
+  .bubble.user {
+    background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
+    border-color: #0e7aa5;
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: 0; /* Right side */
+  }
 }
 
 .bubble .role {
@@ -292,14 +333,6 @@ a {
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-/* MOBILE FIX: allow a little more width */
-@media (max-width: 768px) {
-  .bubble.assistant,
-  .bubble.user {
-    max-width: 90%;
-  }
 }
 
 /* Status and Dots */
@@ -489,10 +522,6 @@ a {
   .thread {
     padding: 16px 12px;
     padding-bottom: calc(var(--composer-h) + 16px);
-  }
-
-  .bubble.user {
-    max-width: 85%;
   }
 
   .sidebar-bottom {
