@@ -8,8 +8,27 @@
 
 /* ================== DESKTOP/TABLET CENTERING ================== */
 
-/* Center the main thread and any limit banners */
-.thread,
+/* MODIFIED: Only center user bubbles and limit banners, not assistant bubbles */
+.thread {
+  max-width: var(--content-w);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* NEW: Allow assistant bubbles to break out and use full available space */
+.bubble.assistant {
+  width: calc(100vw - var(--sidebar-width) - 48px) !important; /* Full width minus sidebar and padding */
+  max-width: none !important;
+  margin-left: calc(-1 * max(12px, ((100vw - var(--sidebar-width)) - var(--content-w)) / 2)) !important;
+  margin-right: calc(-1 * max(12px, ((100vw - var(--sidebar-width)) - var(--content-w)) / 2)) !important;
+}
+
+/* Keep user bubbles within content width and right-aligned */
+.bubble.user {
+  max-width: 70%;
+  margin-left: auto;
+}
+
 .limit-banner {
   max-width: var(--content-w);
   margin-left: auto;
@@ -50,6 +69,13 @@
     padding-left: 20px;
     padding-right: 20px;
   }
+  
+  /* Adjust assistant bubble width for tablet */
+  .bubble.assistant {
+    width: calc(100vw - var(--sidebar-width) - 40px) !important;
+    margin-left: calc(-1 * max(20px, ((100vw - var(--sidebar-width)) - var(--content-w)) / 2)) !important;
+    margin-right: calc(-1 * max(20px, ((100vw - var(--sidebar-width)) - var(--content-w)) / 2)) !important;
+  }
 }
 
 /* ================== MOBILE BREAKPOINT ================== */
@@ -60,6 +86,13 @@
     max-width: 100%;
     padding-left: 12px;
     padding-right: 12px;
+  }
+  
+  /* Mobile: Assistant bubbles use full screen width */
+  .bubble.assistant {
+    width: calc(100vw - 24px) !important;
+    margin-left: -12px !important;
+    margin-right: -12px !important;
   }
   
   /* Hide bottom usage chip on mobile */
