@@ -510,4 +510,63 @@ a {
     -ms-overflow-style: none; /* IE/Edge mobile */
     padding-right: 12px; /* Reset padding on mobile */
   }
+
+  /* ADD THIS TO THE END OF YOUR app.css FILE */
+/* OR REPLACE THE EXISTING BUBBLE STYLES WITH THIS */
+
+/* CORRECT FIX: Chat Bubbles - Override content width constraints */
+.bubble {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  animation: fadeUp 0.18s ease;
 }
+
+/* Assistant messages: Use full available content width */
+.bubble.assistant {
+  background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
+  width: 100%;
+  max-width: none; /* Override any max-width constraints */
+}
+
+/* User messages: Right-aligned with reasonable width */
+.bubble.user {
+  background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
+  border-color: #0e7aa5;
+  margin-left: auto;
+  max-width: 70%;
+}
+
+.bubble .role {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .bubble.assistant {
+    width: 100%;
+    max-width: none;
+  }
+  
+  .bubble.user {
+    max-width: 85%;
+  }
+}
+
+/* ADDITIONAL: Ensure thread content allows full width */
+
+/* If bubbles are still constrained, try this override */
+.thread .bubble.assistant {
+  width: 100% !important;
+  max-width: none !important;
+}
+}
+
