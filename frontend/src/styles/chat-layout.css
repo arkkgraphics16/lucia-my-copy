@@ -84,9 +84,17 @@
     padding-right: 12px;
   }
   
-  /* Mobile: Assistant bubbles use most of the width */
+  /* Mobile: Keep proper alignment */
   .bubble.assistant {
     max-width: 90%;
+    margin-left: 0;
+    margin-right: auto; /* Assistant stays left */
+  }
+  
+  .bubble.user {
+    max-width: 85%;
+    margin-left: auto;
+    margin-right: 0; /* User stays right */
   }
   
   /* Hide bottom usage chip on mobile */
