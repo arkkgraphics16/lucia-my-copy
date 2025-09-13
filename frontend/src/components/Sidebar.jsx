@@ -1,4 +1,3 @@
-// lucia-secure/frontend/src/components/Sidebar.jsx
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
@@ -79,7 +78,6 @@ export default function Sidebar({ open, onClose }) {
 
   async function handleNewChat() {
     if (!auth.currentUser) {
-      // open modal login instead of Google popup
       window.dispatchEvent(new CustomEvent('lucia:show-login'))
       return
     }
@@ -173,7 +171,6 @@ export default function Sidebar({ open, onClose }) {
           <h4 style={{ marginTop: 16 }}>Slots</h4>
           {!user ? (
             <div className="chips-wrap">
-              {/* Open modal instead of direct Google popup */}
               <span className="chip" onClick={openLoginModal}>Log in to see chats</span>
             </div>
           ) : loadingConvos ? (
@@ -209,13 +206,20 @@ export default function Sidebar({ open, onClose }) {
 
                     {openKebabFor === c.id && (
                       <div className="slot-menu">
-                        <button className="menu-item" onClick={(e)=>{ e.stopPropagation(); handleRename(c.id, c.title) }}>
+                        {/* renamed with unique class */}
+                        <button
+                          className="menu-item rename-item"
+                          onClick={(e)=>{ e.stopPropagation(); handleRename(c.id, c.title) }}
+                        >
                           Rename
                         </button>
 
                         <div className="menu-sep"></div>
                         <div className="menu-label">Move to folder</div>
-                        <button className="menu-item" onClick={(e)=>{ e.stopPropagation(); handleMoveToFolder(c.id, null) }}>
+                        <button
+                          className="menu-item"
+                          onClick={(e)=>{ e.stopPropagation(); handleMoveToFolder(c.id, null) }}
+                        >
                           Unfiled
                         </button>
                         {folders.map(f => (
@@ -227,12 +231,19 @@ export default function Sidebar({ open, onClose }) {
                             {f}
                           </button>
                         ))}
-                        <button className="menu-item" onClick={(e)=>{ e.stopPropagation(); handleNewFolder(c.id) }}>
+                        {/* renamed with unique class */}
+                        <button
+                          className="menu-item new-folder-item"
+                          onClick={(e)=>{ e.stopPropagation(); handleNewFolder(c.id) }}
+                        >
                           New folder…
                         </button>
 
                         <div className="menu-sep"></div>
-                        <button className="menu-item danger" onClick={(e)=>{ e.stopPropagation(); handleDeleteChat(c.id) }}>
+                        <button
+                          className="menu-item danger"
+                          onClick={(e)=>{ e.stopPropagation(); handleDeleteChat(c.id) }}
+                        >
                           Delete
                         </button>
                       </div>
@@ -246,7 +257,6 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="sidebar-bottom">
           {!user ? (
-            // Bottom "Log in" button → open modal
             <button className="user-footer login" onClick={openLoginModal}>
               Log in
             </button>
@@ -281,4 +291,3 @@ export default function Sidebar({ open, onClose }) {
     </aside>
   )
 }
-

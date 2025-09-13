@@ -1,4 +1,3 @@
-/* lucia-secure/frontend/src/styles/sidebar.css  (full file with menu + kebab + active chips) */
 :root{ --sidebar-width: 280px; }
 
 .sidebar{
@@ -91,11 +90,18 @@
   box-shadow: var(--shadow-2);
   z-index: 40;
   padding: 6px;
+  animation: menuSlideIn 0.15s ease-out;
 }
+@keyframes menuSlideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .menu-item{
   width: 100%; text-align: left;
   padding: 8px 10px; background: transparent; color: var(--text);
   border: none; border-radius: 8px; cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
 }
 .menu-item:hover{ background: rgba(255,255,255,.04); }
 .menu-item.active{ background: rgba(0,194,255,.10); border: 1px solid rgba(0,194,255,.25); }
@@ -126,55 +132,26 @@
   .sidebar-top{ flex:1; min-height:0; overflow:auto; padding-bottom:12px; }
 }
 
-/* Add only these minimal styles to your existing sidebar.css file */
+/* loading state for optimistic slot buttons */
+.slot-btn.loading { opacity: 0.6; pointer-events: none; }
 
-/* Loading state for optimistic slot buttons */
-.slot-btn.loading {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-/* Simple animation for slot menu */
-.slot-menu {
-  animation: menuSlideIn 0.15s ease-out;
-}
-
-@keyframes menuSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Emphasize “Rename” (first button) and “New folder…” (2nd from last button) */
-.slot-menu .menu-item:first-of-type {           /* Rename */
+/* --- Minimal on-brand emphasis for specific items --- */
+.slot-menu .menu-item.rename-item{
   font-weight: 600;
   border: 1px solid var(--border);
   background: var(--surface-2);
 }
-
-.slot-menu .menu-item:first-of-type:hover {
+.slot-menu .menu-item.rename-item:hover{
   border-color: var(--primary);
-  background: rgba(0,0,0,.06);
+  background: rgba(255,255,255,.04);
 }
 
-/* New folder… is the second-to-last button (last is .danger Delete) */
-.slot-menu .menu-item:nth-last-of-type(2) {     /* New folder… */
+.slot-menu .menu-item.new-folder-item{
   font-weight: 600;
   border: 1px dashed var(--border);
   background: var(--surface-2);
 }
-
-.slot-menu .menu-item:nth-last-of-type(2):hover {
+.slot-menu .menu-item.new-folder-item:hover{
   border-color: var(--primary);
-  background: rgba(0,0,0,.06);
-}
-
-/* Keep hover + active states minimal and on brand */
-.slot-menu .menu-item { 
-  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+  background: rgba(255,255,255,.04);
 }
