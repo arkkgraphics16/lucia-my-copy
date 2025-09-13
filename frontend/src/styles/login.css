@@ -50,7 +50,6 @@
   color: var(--accent);
   cursor: pointer;
   font-size: .92rem;
-  text-decoration: underline;
   padding: 8px 6px;
 }
 
