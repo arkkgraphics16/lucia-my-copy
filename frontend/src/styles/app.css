@@ -568,5 +568,16 @@ a {
   width: 100% !important;
   max-width: none !important;
 }
+
+/* AGGRESSIVE FIX - Add at the very end of app.css */
+.bubble.assistant {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.bubble.user {
+  max-width: 70% !important;
+  margin-left: auto !important;
+}
 }
 
