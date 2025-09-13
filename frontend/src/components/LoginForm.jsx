@@ -16,55 +16,42 @@ import {
 } from "firebase/auth"
 import AddPassword from "./AddPassword"
 
-// If you only deploy to one domain, a constant is OK.
-// If you have multiple (preview/staging/prod), prefer a public env like:
-// const ACTION_URL = import.meta.env.VITE_PUBLIC_SITE_URL || "https://luciadecode.com/";
 const ACTION_URL = "https://luciadecode.com/"
 const actionCodeSettings = { url: ACTION_URL, handleCodeInApp: true }
 
 export default function LoginForm({ onClose, onLogin }) {
-  // Tabs: Email/Password vs Email Link (passwordless)
   const [tab, setTab] = useState("email") // "email" | "link"
-  // Email tab mode
   const [mode, setMode] = useState("login") // "login" | "register"
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [hint, setHint] = useState("")
 
-  // Email/Password state
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPw, setShowPw] = useState(false)
   const [methods, setMethods] = useState([])
 
-  // Email Link state
   const [linkEmail, setLinkEmail] = useState("")
   const debugReturn = useMemo(() => ACTION_URL, [])
 
-  // --- password strength ---
   function scorePassword(pw) {
-    let score = 0
-    if (pw.length >= 8) score++
-    if (/[A-Z]/.test(pw)) score++
-    if (/[a-z]/.test(pw)) score++
-    if (/\d/.test(pw)) score++
-    if (/[^A-Za-z0-9]/.test(pw)) score++
-    // 0-2 weak, 3 ok, 4-5 strong
-    return score
+    let s = 0
+    if (pw.length >= 8) s++
+    if (/[A-Z]/.test(pw)) s++
+    if (/[a-z]/.test(pw)) s++
+    if (/\d/.test(pw)) s++
+    if (/[^A-Za-z0-9]/.test(pw)) s++
+    return s
   }
   const pwScore = scorePassword(password)
   const pwLabel = pwScore <= 2 ? "Weak" : pwScore === 3 ? "Okay" : "Strong"
 
-  // Only check providers for well-formed emails (prevents createAuthUri spam)
   useEffect(() => {
     if (tab !== "email") return
     const trimmed = (email || "").trim()
-    const isLikelyEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
-    if (!isLikelyEmail) {
-      setMethods([])
-      return
-    }
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
+    if (!ok) { setMethods([]); return }
     let alive = true
     ;(async () => {
       try {
@@ -77,27 +64,21 @@ export default function LoginForm({ onClose, onLogin }) {
     return () => { alive = false }
   }, [tab, email])
 
-  // ---- EMAIL + PASSWORD ----
-  async function handleEmailLogin(e) { // LOGIN ONLY
+  async function handleEmailLogin(e) {
     e.preventDefault()
     setLoading(true); setError(""); setHint("")
     try {
       const trimmed = (email || "").trim()
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-        setError("Enter a valid email address.")
-        return
+        setError("Enter a valid email address."); return
       }
-
       let providerMethods = []
       try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
-
-      // If this email used Google previously and has no password yet
       if (providerMethods.includes("google.com") && !providerMethods.includes("password")) {
         setError("This email is registered with Google.")
         setHint("Tap “Continue with Google”, then add a password if you want email login.")
         return
       }
-
       try {
         await loginWithEmail(trimmed, password)
       } catch (err) {
@@ -112,34 +93,26 @@ export default function LoginForm({ onClose, onLogin }) {
         } else if (err?.code === "auth/too-many-requests") {
           setError("Too many attempts. Please wait or use Google.")
           return
-        } else {
-          throw err
-        }
+        } else { throw err }
       }
-
       await ensureUser(auth.currentUser.uid)
       onLogin && onLogin()
       onClose && onClose()
     } catch (err) {
       setError("Firebase: " + (err?.message || "Unexpected error"))
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
-  async function handleEmailRegister(e) { // REGISTER ONLY
+  async function handleEmailRegister(e) {
     e.preventDefault()
     setLoading(true); setError(""); setHint("")
     try {
       const trimmed = (email || "").trim()
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-        setError("Enter a valid email address.")
-        return
+        setError("Enter a valid email address."); return
       }
-
       let providerMethods = []
       try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
-
       if (providerMethods.includes("password")) {
         setError("An account already exists for this email.")
         setHint("Switch to Log in, or reset your password.")
@@ -150,24 +123,17 @@ export default function LoginForm({ onClose, onLogin }) {
         setHint("Tap “Continue with Google”, then add a password in Settings.")
         return
       }
-
-      // optional: enforce strength at register time
       if (pwScore <= 2) {
         setError("Password too weak. Use at least 8 chars with mix of cases, numbers, symbols.")
         return
       }
-
       await registerWithEmail(trimmed, password)
-
       if (auth.currentUser && !auth.currentUser.emailVerified) {
         try {
           await sendEmailVerification(auth.currentUser, actionCodeSettings)
           setHint("Verification sent. Please check your inbox.")
-        } catch (e) {
-          console.warn("sendEmailVerification failed:", e)
-        }
+        } catch (e) { /* no-op */ }
       }
-
       await ensureUser(auth.currentUser.uid)
       onLogin && onLogin()
       onClose && onClose()
@@ -179,18 +145,13 @@ export default function LoginForm({ onClose, onLogin }) {
       } else {
         setError("Firebase: " + (err?.message || "Unexpected error"))
       }
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   async function handleResetPassword() {
     const trimmed = (email || "").trim()
     if (!trimmed) { setError("Enter your email first."); return }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setError("Enter a valid email address."); return
-    }
-
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setError("Enter a valid email address."); return }
     setLoading(true); setError(""); setHint("")
     try {
       let providerMethods = []
@@ -203,8 +164,7 @@ export default function LoginForm({ onClose, onLogin }) {
       await sendPasswordResetEmail(auth, trimmed)
       setHint("Password reset email sent. Check your inbox.")
     } catch (err) {
-      setError("Could not send reset email.")
-      setHint(err?.message || "")
+      setError("Could not send reset email."); setHint(err?.message || "")
     } finally { setLoading(false) }
   }
 
@@ -216,8 +176,7 @@ export default function LoginForm({ onClose, onLogin }) {
       onLogin && onLogin()
       onClose && onClose()
     } catch (err) {
-      setError("Google sign-in failed.")
-      setHint(err?.message || "")
+      setError("Google sign-in failed."); setHint(err?.message || "")
     } finally { setLoading(false) }
   }
 
@@ -228,25 +187,18 @@ export default function LoginForm({ onClose, onLogin }) {
     methods[0] === "google.com" &&
     auth.currentUser.email === (email || "").trim()
 
-  // ---- EMAIL LINK (PASSWORDLESS) ----
   async function handleEmailLink(e) {
     e.preventDefault()
     setLoading(true); setError(""); setHint("")
     try {
       const trimmed = (linkEmail || "").trim()
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-        setError("Enter a valid email address.")
-        return
-      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setError("Enter a valid email address."); return }
       localStorage.setItem("lucia-emailForSignIn", trimmed)
       await sendSignInLinkToEmail(auth, trimmed, actionCodeSettings)
       setHint(`Magic link sent to ${trimmed}. Open it on this device to finish sign-in.`)
     } catch (err) {
-      setError("Failed to send link.")
-      setHint(err?.message || "")
-    } finally {
-      setLoading(false)
-    }
+      setError("Failed to send link."); setHint(err?.message || "")
+    } finally { setLoading(false) }
   }
 
   return (
@@ -255,15 +207,15 @@ export default function LoginForm({ onClose, onLogin }) {
         <button className="close-btn" onClick={onClose} aria-label="Close">✕</button>
 
         {/* Tabs */}
-        <div className="tabs" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <div className="login-tabs">
           <button
-            className={`tab ${tab === "email" ? "active" : ""}`}
+            className={`login-tab ${tab === "email" ? "active" : ""}`}
             onClick={() => { setTab("email"); setError(""); setHint(""); }}
           >
             Email / Password
           </button>
           <button
-            className={`tab ${tab === "link" ? "active" : ""}`}
+            className={`login-tab ${tab === "link" ? "active" : ""}`}
             onClick={() => { setTab("link"); setError(""); setHint(""); }}
           >
             Email Link
@@ -273,11 +225,17 @@ export default function LoginForm({ onClose, onLogin }) {
         {tab === "email" ? (
           <>
             {/* Login/Register toggle */}
-            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-              <button className={`tab ${mode==="login"?"active":""}`} onClick={()=>{setMode("login"); setError(""); setHint("");}}>
+            <div className="login-tabs" style={{ marginBottom: 8 }}>
+              <button
+                className={`login-tab ${mode==="login"?"active":""}`}
+                onClick={()=>{setMode("login"); setError(""); setHint("");}}
+              >
                 Log in
               </button>
-              <button className={`tab ${mode==="register"?"active":""}`} onClick={()=>{setMode("register"); setError(""); setHint("");}}>
+              <button
+                className={`login-tab ${mode==="register"?"active":""}`}
+                onClick={()=>{setMode("register"); setError(""); setHint("");}}
+              >
                 Register
               </button>
             </div>
@@ -292,7 +250,7 @@ export default function LoginForm({ onClose, onLogin }) {
                 autoComplete="email"
               />
 
-              <div style={{ position:"relative" }}>
+              <div className="pw-wrap">
                 <input
                   type={mode==="register" && showPw ? "text" : "password"}
                   placeholder={mode==="register" ? "Create a password" : "Password"}
@@ -305,11 +263,7 @@ export default function LoginForm({ onClose, onLogin }) {
                   <button
                     type="button"
                     onClick={()=>setShowPw(p=>!p)}
-                    style={{
-                      position:"absolute", right:8, top:8,
-                      fontSize:12, opacity:.8, background:"transparent",
-                      border:"none", cursor:"pointer", padding:"4px 6px"
-                    }}
+                    className="pw-toggle"
                     aria-label={showPw ? "Hide password" : "Show password"}
                   >
                     {showPw ? "Hide" : "Show"}
@@ -317,7 +271,6 @@ export default function LoginForm({ onClose, onLogin }) {
                 )}
               </div>
 
-              {/* Strength meter (Register only) */}
               {mode==="register" && (
                 <div style={{ marginTop:6, fontSize:12 }}>
                   <div style={{height:6, background:"var(--surface-2)", borderRadius:4, overflow:"hidden"}}>
@@ -325,7 +278,7 @@ export default function LoginForm({ onClose, onLogin }) {
                       style={{
                         height:"100%",
                         width: `${Math.min(100, pwScore*20)}%`,
-                        background: pwScore <= 2 ? "var(--core)" : pwScore === 3 ? "orange" : "limegreen",
+                        background: pwScore <= 2 ? "var(--core)" : pwScore === 3 ? "var(--primary-600)" : "var(--primary)",
                         transition:"width .2s"
                       }}
                     />
@@ -343,15 +296,7 @@ export default function LoginForm({ onClose, onLogin }) {
             </form>
 
             {mode==="login" && (
-              <button
-                onClick={handleResetPassword}
-                disabled={loading}
-                style={{
-                  width:"100%", marginTop:8, marginBottom:8, padding:8,
-                  border:"1px solid var(--border)", background:"transparent",
-                  color:"var(--text)", borderRadius:"var(--radius-2)", cursor:"pointer"
-                }}
-              >
+              <button className="muted-btn" onClick={handleResetPassword} disabled={loading}>
                 Reset password
               </button>
             )}
@@ -398,8 +343,8 @@ export default function LoginForm({ onClose, onLogin }) {
 
         {(error || hint) && (
           <div className="error" style={{marginTop:10}}>
-            {error && <div style={{color:"var(--core)"}}>{error}</div>}
-            {hint && <div style={{opacity:.9}}>{hint}</div>}
+            {error && <div className="err-line">{error}</div>}
+            {hint && <div className="hint-line">{hint}</div>}
           </div>
         )}
       </div>

@@ -86,3 +86,21 @@
 
 .error .err-line{ color: var(--core); }
 .error .hint-line{ color: var(--text); opacity:.9; }
+
+/* Existing styles remain — adding tiny improvements */
+
+/* Make tab focus visible and keep height consistent */
+.login-tab {
+  outline: none;
+}
+.login-tab:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+/* Ensure inline error/hint colors use theme tokens */
+.error .err-line { color: var(--core); }
+.error .hint-line { color: var(--text); opacity: .9; }
+
+/* Tighten divider spacing slightly for the small card */
+.divider { margin: 10px 0; }
+
