@@ -6,25 +6,12 @@
   --sidebar-width: 280px;
 }
 
-/* ================== DESKTOP/TABLET CENTERING ================== */
+/* ================== BASE STYLES ================== */
 
-/* Center the thread container */
 .thread {
   max-width: var(--content-w);
   margin-left: auto;
   margin-right: auto;
-}
-
-/* Keep both user and assistant bubbles within reasonable bounds */
-.bubble.assistant {
-  max-width: 85%; /* Reasonable max width instead of full screen */
-  margin-right: auto; /* Left-align assistant bubbles */
-}
-
-/* Keep user bubbles within content width and right-aligned */
-.bubble.user {
-  max-width: 70%;
-  margin-left: auto;
 }
 
 .limit-banner {
@@ -33,8 +20,28 @@
   margin-right: auto;
 }
 
-/* Desktop/tablet: center the Composer within the available space (viewport - sidebar) */
-@media (min-width: 820px) {
+/* Bottom usage indicator chip */
+.usage-indicator.bottom-chip {
+  max-width: var(--content-w);
+  margin: 8px auto 0 auto;
+}
+
+/* ================== DESKTOP (1025px and up) ================== */
+@media (min-width: 1025px) {
+  /* Desktop bubble positioning */
+  .bubble.assistant {
+    max-width: 75%;
+    margin-left: 0;
+    margin-right: auto; /* Left side */
+  }
+  
+  .bubble.user {
+    max-width: 65%;
+    margin-left: auto;
+    margin-right: 0; /* Right side */
+  }
+  
+  /* Desktop composer positioning */
   .composer-row {
     left: calc(
       var(--sidebar-width) + max(12px,
@@ -49,16 +56,25 @@
   }
 }
 
-/* Bottom usage indicator chip (desktop only) */
-.usage-indicator.bottom-chip {
-  max-width: var(--content-w);
-  margin: 8px auto 0 auto;
+/* Very wide screens - increase content width */
+@media (min-width: 1400px) {
+  :root {
+    --content-w: 900px;
+  }
 }
 
-/* ================== TABLET BREAKPOINT ================== */
+/* Medium-large screens */
+@media (max-width: 1399px) and (min-width: 1025px) {
+  :root {
+    --content-w: 820px;
+  }
+}
+
+/* ================== TABLET (769px - 1024px) ================== */
 @media (max-width: 1024px) and (min-width: 769px) {
   :root {
     --sidebar-width: 240px;
+    --content-w: 680px;
   }
   
   .thread,
@@ -68,14 +84,40 @@
     padding-right: 20px;
   }
   
-  /* Keep assistant bubbles reasonable on tablet */
+  /* Tablet bubble positioning */
   .bubble.assistant {
-    max-width: 85%;
+    max-width: 80%;
+    margin-left: 0;
+    margin-right: auto; /* Left side */
+  }
+  
+  .bubble.user {
+    max-width: 70%;
+    margin-left: auto;
+    margin-right: 0; /* Right side */
+  }
+  
+  /* Tablet composer positioning */
+  .composer-row {
+    left: calc(
+      var(--sidebar-width) + max(20px,
+        ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
+      )
+    );
+    right: calc(
+      max(20px,
+        ((100vw - var(--sidebar-width)) - var(--content-w)) / 2
+      )
+    );
   }
 }
 
-/* ================== MOBILE BREAKPOINT ================== */
+/* ================== MOBILE (768px and below) ================== */
 @media (max-width: 768px) {
+  :root {
+    --sidebar-width: 280px; /* Reset for mobile calculations */
+  }
+  
   /* Full width layout on mobile */
   .thread,
   .limit-banner {
@@ -84,17 +126,17 @@
     padding-right: 12px;
   }
   
-  /* Mobile: Keep proper alignment */
+  /* Mobile bubble positioning */
   .bubble.assistant {
-    max-width: 90%;
+    max-width: 85%;
     margin-left: 0;
-    margin-right: auto; /* Assistant stays left */
+    margin-right: auto; /* Left side */
   }
   
   .bubble.user {
-    max-width: 85%;
+    max-width: 80%;
     margin-left: auto;
-    margin-right: 0; /* User stays right */
+    margin-right: 0; /* Right side */
   }
   
   /* Hide bottom usage chip on mobile */
@@ -102,7 +144,7 @@
     display: none;
   }
   
-  /* Composer spans full width on mobile */
+  /* Mobile composer positioning */
   .composer-row {
     left: auto;
     right: auto;
@@ -116,32 +158,7 @@
   }
 }
 
-/* ================== RESPONSIVE CONTENT WIDTHS ================== */
-
-/* Very wide screens - increase content width slightly */
-@media (min-width: 1400px) {
-  :root {
-    --content-w: 900px;
-  }
-}
-
-/* Medium screens - reduce content width */
-@media (max-width: 1200px) and (min-width: 821px) {
-  :root {
-    --content-w: 760px;
-  }
-}
-
-/* Smaller tablets - further reduce content width */
-@media (max-width: 1024px) and (min-width: 769px) {
-  :root {
-    --content-w: 680px;
-  }
-}
-
-/* ================== SAFE AREA HANDLING ================== */
-
-/* Handle notch and safe areas on mobile devices */
+/* ================== SAFE AREA HANDLING (Mobile only) ================== */
 @media (max-width: 768px) {
   .thread {
     padding-left: max(12px, env(safe-area-inset-left));
@@ -154,9 +171,7 @@
   }
 }
 
-/* ================== ACCESSIBILITY ================== */
-
-/* Ensure adequate spacing for touch targets on mobile */
+/* ================== ACCESSIBILITY (Mobile only) ================== */
 @media (max-width: 768px) {
   .bubble {
     margin-bottom: 12px;
