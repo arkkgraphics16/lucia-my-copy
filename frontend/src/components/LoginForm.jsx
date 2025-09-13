@@ -20,8 +20,10 @@ const ACTION_URL = "https://luciadecode.com/"
 const actionCodeSettings = { url: ACTION_URL, handleCodeInApp: true }
 
 export default function LoginForm({ onClose, onLogin }) {
-  const [tab, setTab] = useState("email") // "email" | "link"
+  // ONE main choice up top
   const [mode, setMode] = useState("login") // "login" | "register"
+  // Passwordless is now an inline option, not a tab
+  const [showLink, setShowLink] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -35,6 +37,7 @@ export default function LoginForm({ onClose, onLogin }) {
   const [linkEmail, setLinkEmail] = useState("")
   const debugReturn = useMemo(() => ACTION_URL, [])
 
+  // --- password strength (register) ---
   function scorePassword(pw) {
     let s = 0
     if (pw.length >= 8) s++
@@ -47,8 +50,9 @@ export default function LoginForm({ onClose, onLogin }) {
   const pwScore = scorePassword(password)
   const pwLabel = pwScore <= 2 ? "Weak" : pwScore === 3 ? "Okay" : "Strong"
 
+  // Check providers for well-formed emails (prevents noisy network calls)
   useEffect(() => {
-    if (tab !== "email") return
+    if (showLink) return
     const trimmed = (email || "").trim()
     const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
     if (!ok) { setMethods([]); return }
@@ -62,8 +66,9 @@ export default function LoginForm({ onClose, onLogin }) {
       }
     })()
     return () => { alive = false }
-  }, [tab, email])
+  }, [email, showLink])
 
+  // ---- EMAIL + PASSWORD: LOGIN ----
   async function handleEmailLogin(e) {
     e.preventDefault()
     setLoading(true); setError(""); setHint("")
@@ -83,16 +88,11 @@ export default function LoginForm({ onClose, onLogin }) {
         await loginWithEmail(trimmed, password)
       } catch (err) {
         if (err?.code === "auth/user-not-found") {
-          setError("No account found for this email.")
-          setHint("Switch to Register to create one.")
-          return
+          setError("No account found for this email."); setHint("Switch to Register to create one."); return
         } else if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password") {
-          setError("Incorrect password.")
-          setHint("If you forgot it, use Reset password or sign in with Google if you used that before.")
-          return
+          setError("Incorrect password."); setHint("Use Reset password or Continue with Google if used before."); return
         } else if (err?.code === "auth/too-many-requests") {
-          setError("Too many attempts. Please wait or use Google.")
-          return
+          setError("Too many attempts. Please wait or use Google."); return
         } else { throw err }
       }
       await ensureUser(auth.currentUser.uid)
@@ -103,6 +103,7 @@ export default function LoginForm({ onClose, onLogin }) {
     } finally { setLoading(false) }
   }
 
+  // ---- EMAIL + PASSWORD: REGISTER ----
   async function handleEmailRegister(e) {
     e.preventDefault()
     setLoading(true); setError(""); setHint("")
@@ -114,40 +115,28 @@ export default function LoginForm({ onClose, onLogin }) {
       let providerMethods = []
       try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
       if (providerMethods.includes("password")) {
-        setError("An account already exists for this email.")
-        setHint("Switch to Log in, or reset your password.")
-        return
+        setError("An account already exists for this email."); setHint("Switch to Log in or reset your password."); return
       }
       if (providerMethods.includes("google.com") && !providerMethods.includes("password")) {
-        setError("This email is registered with Google.")
-        setHint("Tap “Continue with Google”, then add a password in Settings.")
-        return
+        setError("This email is registered with Google."); setHint("Tap “Continue with Google”, then add a password in Settings."); return
       }
-      if (pwScore <= 2) {
-        setError("Password too weak. Use at least 8 chars with mix of cases, numbers, symbols.")
-        return
-      }
+      if (pwScore <= 2) { setError("Password too weak. Use at least 8 chars with mix of cases, numbers, symbols."); return }
+
       await registerWithEmail(trimmed, password)
       if (auth.currentUser && !auth.currentUser.emailVerified) {
-        try {
-          await sendEmailVerification(auth.currentUser, actionCodeSettings)
-          setHint("Verification sent. Please check your inbox.")
-        } catch (e) { /* no-op */ }
+        try { await sendEmailVerification(auth.currentUser, actionCodeSettings); setHint("Verification sent. Please check your inbox.") } catch {}
       }
       await ensureUser(auth.currentUser.uid)
       onLogin && onLogin()
       onClose && onClose()
     } catch (err) {
-      if (err?.code === "auth/email-already-in-use") {
-        setError("Email already in use. Switch to Log in.")
-      } else if (err?.code === "auth/weak-password") {
-        setError("Password is too weak. Try a stronger one.")
-      } else {
-        setError("Firebase: " + (err?.message || "Unexpected error"))
-      }
+      if (err?.code === "auth/email-already-in-use") setError("Email already in use. Switch to Log in.")
+      else if (err?.code === "auth/weak-password") setError("Password is too weak. Try a stronger one.")
+      else setError("Firebase: " + (err?.message || "Unexpected error"))
     } finally { setLoading(false) }
   }
 
+  // ---- PASSWORD RESET ----
   async function handleResetPassword() {
     const trimmed = (email || "").trim()
     if (!trimmed) { setError("Enter your email first."); return }
@@ -158,7 +147,7 @@ export default function LoginForm({ onClose, onLogin }) {
       try { providerMethods = await fetchSignInMethodsForEmail(auth, trimmed) } catch { providerMethods = [] }
       if (!providerMethods.includes("password")) {
         setError("No password set for this email.")
-        setHint("Use “Continue with Google” instead, then add a password later in Settings.")
+        setHint("Use “Continue with Google”, then add a password later in Settings.")
         return
       }
       await sendPasswordResetEmail(auth, trimmed)
@@ -168,6 +157,7 @@ export default function LoginForm({ onClose, onLogin }) {
     } finally { setLoading(false) }
   }
 
+  // ---- GOOGLE ----
   async function handleGoogleLogin() {
     setLoading(true); setError(""); setHint("")
     try {
@@ -180,13 +170,15 @@ export default function LoginForm({ onClose, onLogin }) {
     } finally { setLoading(false) }
   }
 
+  // When user is Google-only and typed their email, suggest adding a password
   const showAddPassword =
-    tab === "email" &&
+    !showLink &&
     auth.currentUser?.email &&
     methods.length === 1 &&
     methods[0] === "google.com" &&
     auth.currentUser.email === (email || "").trim()
 
+  // ---- EMAIL LINK (PASSWORDLESS) ----
   async function handleEmailLink(e) {
     e.preventDefault()
     setLoading(true); setError(""); setHint("")
@@ -201,45 +193,72 @@ export default function LoginForm({ onClose, onLogin }) {
     } finally { setLoading(false) }
   }
 
+  // ---------- UI ----------
   return (
     <div className="login-overlay" role="dialog" aria-modal="true">
       <div className="login-modal">
         <button className="close-btn" onClick={onClose} aria-label="Close">✕</button>
 
-        {/* Tabs */}
-        <div className="login-tabs">
+        {/* Main choice: Log in vs Register (pill-style, not big blue tabs) */}
+        <div className="login-main-toggle">
           <button
-            className={`login-tab ${tab === "email" ? "active" : ""}`}
-            onClick={() => { setTab("email"); setError(""); setHint(""); }}
+            className={`toggle-btn ${mode==="login"?"active":""}`}
+            onClick={()=>{ setMode("login"); setShowLink(false); setError(""); setHint(""); }}
           >
-            Email / Password
+            Log in
           </button>
           <button
-            className={`login-tab ${tab === "link" ? "active" : ""}`}
-            onClick={() => { setTab("link"); setError(""); setHint(""); }}
+            className={`toggle-btn ${mode==="register"?"active":""}`}
+            onClick={()=>{ setMode("register"); setShowLink(false); setError(""); setHint(""); }}
           >
-            Email Link
+            Register
           </button>
         </div>
 
-        {tab === "email" ? (
+        {/* PASSWORDLESS VIEW */}
+        {showLink ? (
           <>
-            {/* Login/Register toggle */}
-            <div className="login-tabs" style={{ marginBottom: 8 }}>
-              <button
-                className={`login-tab ${mode==="login"?"active":""}`}
-                onClick={()=>{setMode("login"); setError(""); setHint("");}}
-              >
-                Log in
+            <h2 style={{margin:"2px 0 8px"}}>Passwordless Email Link</h2>
+            <p style={{ fontSize: 13, opacity: .8, margin: "0 0 10px" }}>
+              We’ll email you a one-time sign-in link. No password required.
+            </p>
+            <form onSubmit={handleEmailLink}>
+              <input
+                type="email"
+                placeholder="Email (e.g., you@example.com)"
+                value={linkEmail}
+                onChange={e=>setLinkEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+              <button type="submit" disabled={loading}>
+                {loading ? "Sending..." : "Send Sign-In Link"}
               </button>
-              <button
-                className={`login-tab ${mode==="register"?"active":""}`}
-                onClick={()=>{setMode("register"); setError(""); setHint("");}}
-              >
-                Register
-              </button>
-            </div>
+            </form>
 
+            <button className="link-btn" onClick={()=>{ setShowLink(false); setError(""); setHint(""); }}>
+              Back to {mode === "login" ? "Email Login" : "Register"}
+            </button>
+
+            <div className="divider">or</div>
+            <button className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
+              Continue with Google
+            </button>
+
+            {(error || hint) && (
+              <div className="error" style={{marginTop:10}}>
+                {error && <div className="err-line">{error}</div>}
+                {hint && <div className="hint-line">{hint}</div>}
+              </div>
+            )}
+
+            <div style={{marginTop:10, fontSize:12, opacity:.6}}>
+              Return URL: <code>{debugReturn}</code>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* EMAIL + PASSWORD VIEW */}
             <form onSubmit={mode==="login" ? handleEmailLogin : handleEmailRegister}>
               <input
                 type="email"
@@ -291,14 +310,19 @@ export default function LoginForm({ onClose, onLogin }) {
               )}
 
               <button type="submit" disabled={loading} style={{ marginTop: 10 }}>
-                {loading ? "Loading..." : (mode==="login" ? "Log in" : "Create account")}
+                {loading ? "Loading..." : (mode==="login" ? "Log in with Email" : "Create Account")}
               </button>
             </form>
 
             {mode==="login" && (
-              <button className="muted-btn" onClick={handleResetPassword} disabled={loading}>
-                Reset password
-              </button>
+              <div style={{display:"flex", gap:8, marginTop:8}}>
+                <button className="muted-btn" onClick={handleResetPassword} disabled={loading} style={{flex:1}}>
+                  Reset password
+                </button>
+                <button className="link-btn" onClick={()=>{ setShowLink(true); setError(""); setHint(""); }}>
+                  Email Link Instead
+                </button>
+              </div>
             )}
 
             {showAddPassword && (
@@ -314,38 +338,14 @@ export default function LoginForm({ onClose, onLogin }) {
             <button className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
               Continue with Google
             </button>
-          </>
-        ) : (
-          <>
-            <h2>Log in with Email Link</h2>
-            <p style={{ fontSize: 13, opacity: 0.8, marginTop: -4, marginBottom: 8 }}>
-              We’ll email you a one-time sign-in link. No password required.
-            </p>
-            <form onSubmit={handleEmailLink}>
-              <input
-                type="email"
-                placeholder="Email (e.g., you@example.com)"
-                value={linkEmail}
-                onChange={e=>setLinkEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-              <button type="submit" disabled={loading}>
-                {loading ? "Sending..." : "Send link"}
-              </button>
-            </form>
 
-            <div style={{marginTop:8, fontSize:12, opacity:.6}}>
-              Return URL: <code>{debugReturn}</code>
-            </div>
+            {(error || hint) && (
+              <div className="error" style={{marginTop:10}}>
+                {error && <div className="err-line">{error}</div>}
+                {hint && <div className="hint-line">{hint}</div>}
+              </div>
+            )}
           </>
-        )}
-
-        {(error || hint) && (
-          <div className="error" style={{marginTop:10}}>
-            {error && <div className="err-line">{error}</div>}
-            {hint && <div className="hint-line">{hint}</div>}
-          </div>
         )}
       </div>
     </div>

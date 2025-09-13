@@ -25,19 +25,33 @@
 }
 .close-btn:hover{ opacity:1; }
 
-/* Tabs */
-.login-tabs{
+/* ===== New: main toggle (Log in | Register) ===== */
+.login-main-toggle{
   display:flex; gap:8px; margin-bottom:14px;
 }
-.login-tab{
-  flex:1; padding:10px 12px; border-radius: var(--radius-2);
+.toggle-btn{
+  flex:1; padding:10px 12px; border-radius:999px;
   border:1px solid var(--border);
-  background: transparent; color: var(--text);
-  cursor:pointer; font-weight:600;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor:pointer; font-weight:700; letter-spacing:.2px;
+  transition: background .2s, border-color .2s, transform .06s;
 }
-.login-tab.active{
+.toggle-btn:hover{ border-color: var(--primary); transform: translateY(-1px); }
+.toggle-btn.active{
   background: var(--primary);
-  color:#000000; border-color: transparent;
+  color:#00131c; border-color: transparent;
+}
+
+/* Inline action links */
+.link-btn{
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: .92rem;
+  text-decoration: underline;
+  padding: 8px 6px;
 }
 
 /* Inputs */
@@ -54,32 +68,33 @@
 .pw-toggle{
   position:absolute; right:8px; top:50%; transform:translateY(-50%);
   border:none; background:transparent; color: var(--text); opacity:.7;
-  cursor:pointer; font-size:16px; line-height:1;
+  cursor:pointer; font-size:14px; line-height:1;
 }
 
 /* Primary buttons */
 .login-modal button[type="submit"]{
   width:100%; padding:10px; border-radius: var(--radius-2);
-  border:none; cursor:pointer; font-weight:600;
-  background: var(--primary); color:#000000;
+  border:none; cursor:pointer; font-weight:700;
+  background: var(--primary); color:#00131c;
 }
+.login-modal button[type="submit"]:hover{ filter: brightness(1.05); }
 
-/* Google button shares primary hue but reduced opacity for hierarchy */
-.google-btn{
-  width:100%; padding:10px; border-radius: var(--radius-2);
-  border:none; cursor:pointer; font-weight:600;
-  background: var(--primary); color:#000000; opacity:.92;
-}
-.google-btn:hover, .login-modal button[type="submit"]:hover{ opacity:1; }
-
-/* Muted action */
+/* Secondary */
 .muted-btn{
-  width:100%; padding:8px; margin-top:8px;
+  width:100%; padding:10px;
   border-radius: var(--radius-2);
   border:1px solid var(--border);
   background: transparent; color: var(--text);
   cursor:pointer;
 }
+
+/* Google */
+.google-btn{
+  width:100%; padding:10px; border-radius: var(--radius-2);
+  border:none; cursor:pointer; font-weight:700;
+  background: var(--primary); color:#00131c; opacity:.92;
+}
+.google-btn:hover{ opacity:1; }
 
 /* Divider + messages */
 .divider{ text-align:center; margin:12px 0; color: var(--text); opacity:.6; }
@@ -87,20 +102,11 @@
 .error .err-line{ color: var(--core); }
 .error .hint-line{ color: var(--text); opacity:.9; }
 
-/* Existing styles remain — adding tiny improvements */
-
-/* Make tab focus visible and keep height consistent */
-.login-tab {
-  outline: none;
+/* Focus outlines for a11y */
+.toggle-btn:focus-visible,
+.link-btn:focus-visible,
+.login-modal input:focus-visible,
+.login-modal button:focus-visible{
+  outline: 2px solid color-mix(in srgb, var(--primary) 50%, transparent);
+  outline-offset: 2px;
 }
-.login-tab:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 40%, transparent);
-}
-
-/* Ensure inline error/hint colors use theme tokens */
-.error .err-line { color: var(--core); }
-.error .hint-line { color: var(--text); opacity: .9; }
-
-/* Tighten divider spacing slightly for the small card */
-.divider { margin: 10px 0; }
-
