@@ -261,7 +261,7 @@ a {
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent; /* thumb color, track color */
 }
 
-/* Chat Bubbles */
+/* FIXED: Chat Bubbles - Now matches ChatGPT layout */
 .bubble {
   padding: 14px 16px;
   border-radius: 16px;
@@ -270,17 +270,18 @@ a {
   animation: fadeUp 0.18s ease;
 }
 
-/* FIX: consistent max-width for both roles */
+/* FIXED: Assistant messages now span full width like ChatGPT */
 .bubble.assistant {
   background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
-  max-width: 75%;
+  width: 100%; /* Full width instead of max-width: 75% */
 }
 
+/* FIXED: User messages stay right-aligned with reasonable width */
 .bubble.user {
   background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
   border-color: #0e7aa5;
   margin-left: auto;
-  max-width: 75%;
+  max-width: 70%; /* Slightly reduced from 75% for better balance */
 }
 
 .bubble .role {
@@ -294,11 +295,14 @@ a {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* MOBILE FIX: allow a little more width */
+/* MOBILE FIX: Adjust widths for mobile screens */
 @media (max-width: 768px) {
-  .bubble.assistant,
+  .bubble.assistant {
+    width: 100%; /* Still full width on mobile */
+  }
+  
   .bubble.user {
-    max-width: 90%;
+    max-width: 85%; /* Slightly more width on mobile for readability */
   }
 }
 
@@ -491,10 +495,6 @@ a {
     padding-bottom: calc(var(--composer-h) + 16px);
   }
 
-  .bubble.user {
-    max-width: 85%;
-  }
-
   .sidebar-bottom {
     padding-bottom: 16px;
   }
@@ -510,29 +510,4 @@ a {
     -ms-overflow-style: none; /* IE/Edge mobile */
     padding-right: 12px; /* Reset padding on mobile */
   }
-
-  .thread { display: flex; flex-direction: column; } /* already there, safe to keep */
-
-    .bubble.assistant {
-      /* stay on the LEFT across desktop & mobile */
-      align-self: flex-start;
-      margin-left: 0;
-      margin-right: auto;
-    }
-
-    .bubble.user {
-      /* stay on the RIGHT across desktop & mobile */
-      align-self: flex-end;
-      margin-left: auto;
-      margin-right: 0;
-    }
-
-    /* Keep your current widths; these are fine */
-    @media (max-width: 768px) {
-      .bubble.assistant,
-      .bubble.user {
-        max-width: 90%;
-      }
-    }
-    
 }
