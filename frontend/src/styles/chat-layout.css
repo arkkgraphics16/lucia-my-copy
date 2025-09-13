@@ -26,6 +26,35 @@
   margin: 8px auto 0 auto;
 }
 
+/* ================== BUBBLE BASE STYLES ================== */
+.bubble {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  animation: fadeUp 0.18s ease;
+}
+
+.bubble.assistant {
+  background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
+}
+
+.bubble.user {
+  background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
+  border-color: #0e7aa5;
+}
+
+.bubble .role {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ================== DESKTOP (1025px and up) ================== */
 @media (min-width: 1025px) {
   /* Desktop bubble positioning */

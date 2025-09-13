@@ -261,7 +261,7 @@ a {
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent; /* thumb color, track color */
 }
 
-/* Chat Bubbles - RESPONSIVE POSITIONING */
+/* Chat Bubbles - BASE STYLES ONLY (positioning moved to chat-layout.css) */
 .bubble {
   padding: 14px 16px;
   border-radius: 16px;
@@ -270,58 +270,13 @@ a {
   animation: fadeUp 0.18s ease;
 }
 
-/* ================== DESKTOP (1025px and up) ================== */
-@media (min-width: 1025px) {
-  .bubble.assistant {
-    background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
-    max-width: 75%;
-    margin-left: 0;
-    margin-right: auto; /* Left side */
-  }
-
-  .bubble.user {
-    background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
-    border-color: #0e7aa5;
-    max-width: 65%;
-    margin-left: auto;
-    margin-right: 0; /* Right side */
-  }
+.bubble.assistant {
+  background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
 }
 
-/* ================== TABLET (769px - 1024px) ================== */
-@media (max-width: 1024px) and (min-width: 769px) {
-  .bubble.assistant {
-    background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
-    max-width: 80%;
-    margin-left: 0;
-    margin-right: auto; /* Left side */
-  }
-
-  .bubble.user {
-    background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
-    border-color: #0e7aa5;
-    max-width: 70%;
-    margin-left: auto;
-    margin-right: 0; /* Right side */
-  }
-}
-
-/* ================== MOBILE (768px and below) ================== */
-@media (max-width: 768px) {
-  .bubble.assistant {
-    background: linear-gradient(180deg, rgba(0,194,255,.08), rgba(0,194,255,.05));
-    max-width: 85%;
-    margin-left: 0;
-    margin-right: auto; /* Left side */
-  }
-
-  .bubble.user {
-    background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
-    border-color: #0e7aa5;
-    max-width: 80%;
-    margin-left: auto;
-    margin-right: 0; /* Right side */
-  }
+.bubble.user {
+  background: linear-gradient(180deg, rgba(0,194,255,.35), rgba(0,194,255,.18));
+  border-color: #0e7aa5;
 }
 
 .bubble .role {
