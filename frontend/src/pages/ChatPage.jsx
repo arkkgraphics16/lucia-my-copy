@@ -64,6 +64,7 @@ async function normalizeUserDoc(uid) {
 
     // courtesy_used
     if (typeof cur.courtesy_used !== "boolean") {
+      // Only set when not boolean; preserve truthy 'true' string
       const raw = cur.courtesy_used
       let coerced = false
       if (typeof raw === "string") {
@@ -96,7 +97,6 @@ async function acceptCourtesy(uid) {
       : (typeof cur.courtesy_used === "string" ? cur.courtesy_used.toLowerCase() === "true" : !!cur.courtesy_used)
 
     if (tier === "free" && used === 10 && !courtesy) {
-      // Accepting courtesy immediately advances to 11 (consumes none of the *two extra* after we lift cap to 13 total)
       tx.update(ref, { exchanges_used: 11, courtesy_used: true })
     } else {
       throw new Error("Courtesy not available")
@@ -105,7 +105,7 @@ async function acceptCourtesy(uid) {
 }
 
 /* --------------------------- SAFE USAGE INCREMENT --------------------------- */
-/** Mirrors rules intent: free: 10; courtesy adds +2 → allow up to 12; lock on the 13th attempt. */
+/** Mirrors your rules precisely. */
 async function safeIncrementUsage(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
@@ -128,8 +128,7 @@ async function safeIncrementUsage(uid) {
       tx.update(ref, { exchanges_used: used + 1 })
     } else if (used === 10 && !courtesy) {
       tx.update(ref, { exchanges_used: 11, courtesy_used: true })
-    } else if (courtesy && used < 13) {
-      // allow increments up to 13 (so we can reach 13 and then client blocks next attempt)
+    } else if (courtesy && used < 12) {
       tx.update(ref, { exchanges_used: used + 1 })
     } else {
       throw new Error("Free limit reached")
@@ -263,9 +262,7 @@ export default function ChatPage() {
     const courtesy = typeof profile.courtesy_used === "boolean"
       ? profile.courtesy_used
       : (typeof profile.courtesy_used === "string" ? profile.courtesy_used.toLowerCase() === "true" : !!profile.courtesy_used)
-
-    // *** CHANGE: courtesy grants a cap of 13 total (so after accepting at 11, you still have 2 more sends) ***
-    const total = isPro ? Infinity : (courtesy ? 13 : 10)
+    const total = isPro ? Infinity : (courtesy ? 12 : 10)
     const remaining = isPro ? Infinity : Math.max(0, total - used)
     return { isPro, used, courtesy, total, remaining }
   }, [profile])
@@ -282,8 +279,7 @@ export default function ChatPage() {
       setCapHit(false)
       return
     }
-    // *** CHANGE: cap triggers when used >= 13 (not 12) while courtesy is active ***
-    if (quota.courtesy && quota.used >= 13) {
+    if (quota.courtesy && quota.used >= 12) {
       setShowCourtesy(false)
       setCapHit(true)
       return
@@ -307,7 +303,10 @@ export default function ChatPage() {
       const uid = auth.currentUser?.uid
       if (!uid) return setShowLogin(true)
 
+      // Re-check but only normalize if types are wrong/missing (won't write false→false)
       await normalizeUserDoc(uid)
+
+      // LEGAL single write: 10→11 + courtesy_used:true
       await acceptCourtesy(uid)
       setShowCourtesy(false)
     } catch (e) {
@@ -348,8 +347,7 @@ export default function ChatPage() {
           setBusy(false)
           return
         }
-        // *** CHANGE: hardTotal 13 when courtesy is active ***
-        const hardTotal = quota.courtesy ? 13 : 10
+        const hardTotal = quota.courtesy ? 12 : 10
         if (quota.used >= hardTotal) {
           setCapHit(true)
           setBusy(false)
@@ -404,7 +402,7 @@ export default function ChatPage() {
   // Usage indicator values
   const usageDisplay = useMemo(() => {
     if (!profile || quota.isPro) return null
-    const total = quota.total // already 13 when courtesy, 10 otherwise
+    const total = quota.courtesy ? 12 : 10
     const current = Math.min(quota.used, total)
     return { current, total }
   }, [profile, quota])
