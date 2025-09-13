@@ -155,3 +155,50 @@
   border-color: var(--primary);
   background: rgba(255,255,255,.04);
 }
+
+/* ----- Styled inline modal for Rename / New folder ----- */
+.slotmodal-overlay{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2000;
+}
+.slotmodal{
+  width: min(480px, 92vw);
+  background: var(--surface-1, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-2);
+  padding: 16px;
+  animation: menuSlideIn .15s ease-out;
+}
+.slotmodal-header{
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.slotmodal-input{
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+}
+.slotmodal-input:focus{
+  border-color: var(--primary);
+}
+.slotmodal-actions{
+  margin-top: 12px;
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+.btn{
+  padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); cursor: pointer;
+}
+.btn.ghost:hover{ border-color: var(--primary); }
+.btn.primary{
+  background: var(--primary); color: #00131c; border-color: var(--primary);
+}
+.btn.primary:hover{ filter: brightness(1.05); }

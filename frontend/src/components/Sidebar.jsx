@@ -11,6 +11,33 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 import '../styles/slots.css'
 import '../styles/sidebar.css'
 
+function InlineModal({ title, value, setValue, onCancel, onSave, placeholder, okLabel="OK" }) {
+  function onKey(e){
+    if (e.key === 'Enter') onSave()
+    if (e.key === 'Escape') onCancel()
+  }
+  return (
+    <div className="slotmodal-overlay" role="dialog" aria-modal="true">
+      <div className="slotmodal">
+        <div className="slotmodal-header">{title}</div>
+        <input
+          autoFocus
+          className="slotmodal-input"
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          onChange={e=>setValue(e.target.value)}
+          onKeyDown={onKey}
+        />
+        <div className="slotmodal-actions">
+          <button className="btn ghost" type="button" onClick={onCancel}>Cancel</button>
+          <button className="btn primary" type="button" onClick={onSave}>{okLabel}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuthToken()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -20,6 +47,12 @@ export default function Sidebar({ open, onClose }) {
   const [currentFolder, setCurrentFolder] = useState(null)
   const [openKebabFor, setOpenKebabFor] = useState(null)
   const kebabRef = useRef(null)
+
+  // modal state (replaces window.prompt)
+  const [renameFor, setRenameFor] = useState(null)         // { cid, currentTitle }
+  const [renameValue, setRenameValue] = useState('')
+  const [newFolderFor, setNewFolderFor] = useState(null)   // { cid }
+  const [newFolderValue, setNewFolderValue] = useState('')
 
   const firstPrompt = "I don’t even know what I’ve gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
@@ -114,24 +147,31 @@ export default function Sidebar({ open, onClose }) {
     setOpenKebabFor(null)
   }
 
-  async function handleRename(cid, currentTitle) {
-    if (!user?.uid) return
-    const next = window.prompt('Rename chat', currentTitle || 'Untitled')
-    if (!next) { setOpenKebabFor(null); return }
-    await setConversationTitle(user.uid, cid, next.slice(0, 80))
+  // --- NEW: modal open/confirm handlers ---
+  function openRenameModal(cid, currentTitle) {
     setOpenKebabFor(null)
+    setRenameFor({ cid, currentTitle })
+    setRenameValue(currentTitle || '')
+  }
+  async function confirmRename() {
+    if (!user?.uid || !renameFor) return
+    const next = renameValue.trim()
+    if (!next) { setRenameFor(null); return }
+    await setConversationTitle(user.uid, renameFor.cid, next.slice(0, 80))
+    setRenameFor(null)
   }
 
-  async function handleMoveToFolder(cid, folder) {
-    if (!user?.uid) return
-    await setConversationFolder(user.uid, cid, folder)
+  function openNewFolderModal(cid) {
     setOpenKebabFor(null)
+    setNewFolderFor({ cid })
+    setNewFolderValue('')
   }
-
-  async function handleNewFolder(cid) {
-    const name = window.prompt('New folder name')
-    if (!name) return
-    await handleMoveToFolder(cid, name.trim().slice(0, 48))
+  async function confirmNewFolder() {
+    if (!user?.uid || !newFolderFor) return
+    const name = newFolderValue.trim().slice(0, 48)
+    if (!name) { setNewFolderFor(null); return }
+    await setConversationFolder(user.uid, newFolderFor.cid, name)
+    setNewFolderFor(null)
   }
 
   const openLoginModal = () => window.dispatchEvent(new CustomEvent('lucia:show-login'))
@@ -206,10 +246,9 @@ export default function Sidebar({ open, onClose }) {
 
                     {openKebabFor === c.id && (
                       <div className="slot-menu">
-                        {/* renamed with unique class */}
                         <button
                           className="menu-item rename-item"
-                          onClick={(e)=>{ e.stopPropagation(); handleRename(c.id, c.title) }}
+                          onClick={(e)=>{ e.stopPropagation(); openRenameModal(c.id, c.title) }}
                         >
                           Rename
                         </button>
@@ -218,7 +257,7 @@ export default function Sidebar({ open, onClose }) {
                         <div className="menu-label">Move to folder</div>
                         <button
                           className="menu-item"
-                          onClick={(e)=>{ e.stopPropagation(); handleMoveToFolder(c.id, null) }}
+                          onClick={(e)=>{ e.stopPropagation(); setConversationFolder(user.uid, c.id, null); setOpenKebabFor(null) }}
                         >
                           Unfiled
                         </button>
@@ -226,15 +265,14 @@ export default function Sidebar({ open, onClose }) {
                           <button
                             key={f}
                             className={`menu-item${c.folder === f ? ' active' : ''}`}
-                            onClick={(e)=>{ e.stopPropagation(); handleMoveToFolder(c.id, f) }}
+                            onClick={(e)=>{ e.stopPropagation(); setConversationFolder(user.uid, c.id, f); setOpenKebabFor(null) }}
                           >
                             {f}
                           </button>
                         ))}
-                        {/* renamed with unique class */}
                         <button
                           className="menu-item new-folder-item"
-                          onClick={(e)=>{ e.stopPropagation(); handleNewFolder(c.id) }}
+                          onClick={(e)=>{ e.stopPropagation(); openNewFolderModal(c.id) }}
                         >
                           New folder…
                         </button>
@@ -288,6 +326,30 @@ export default function Sidebar({ open, onClose }) {
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      {renameFor && (
+        <InlineModal
+          title="Rename chat"
+          value={renameValue}
+          setValue={setRenameValue}
+          placeholder="Untitled"
+          onCancel={()=>setRenameFor(null)}
+          onSave={confirmRename}
+          okLabel="Save"
+        />
+      )}
+      {newFolderFor && (
+        <InlineModal
+          title="New folder name"
+          value={newFolderValue}
+          setValue={setNewFolderValue}
+          placeholder="e.g., Research"
+          onCancel={()=>setNewFolderFor(null)}
+          onSave={confirmNewFolder}
+          okLabel="Create"
+        />
+      )}
     </aside>
   )
 }
