@@ -1,270 +1,157 @@
-/* sidebar.css */
+/* lucia-secure/frontend/src/styles/sidebar.css  (full file with menu + kebab + active chips) */
+:root{ --sidebar-width: 280px; }
 
-.sidebar {
-  width: 260px;
-  background: var(--surface-1);
+.sidebar{
+  background: var(--surface);
   border-right: 1px solid var(--border);
-  height: 100%;
-  position: fixed;
-  top: 0;
-  left: 0;
-  transform: translateX(-100%);
-  transition: transform 0.2s ease;
-  z-index: 1100;
-  overflow-y: auto;
-}
-
-.sidebar.open {
-  transform: translateX(0);
-}
-
-.sidebar-content {
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  padding: 12px;
+  gap: 10px;
+}
+.sidebar h4{
+  margin: 8px 0 4px;
+  color: var(--muted);
+  font-weight: 600;
 }
 
-.sidebar-top {
-  flex: 1;
-  overflow-y: auto;
+/* chips */
+.chips-wrap{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip{
+  display:inline-block; background: var(--surface-2);
+  padding:6px 10px; border-radius:999px;
+  border:1px solid var(--border); cursor:pointer;
 }
+.chip:hover{ border-color: var(--primary); color: var(--primary); }
+.chip.active{ border-color: var(--primary); color: var(--primary); }
 
-.sidebar-bottom {
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.chips-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.chip {
-  padding: 6px 10px;
-  border-radius: var(--radius-2);
-  background: var(--surface-2);
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.chip:hover {
-  background: var(--surface-3);
-}
-
-.chip.active {
-  background: var(--primary);
-  color: #fff;
-}
-
-.slots-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.slot-row-wrapper {
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-
-.slot-btn {
-  flex: 1;
-  text-align: left;
-  padding: 6px 10px;
-  border-radius: var(--radius-2);
-  background: var(--surface-2);
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.15s ease;
-}
-
-.slot-btn:hover {
-  background: var(--surface-3);
-}
-
-.slot-btn[aria-current="page"] {
-  background: var(--primary);
-  color: #fff;
-}
-
-.slot-title {
-  font-weight: 500;
-}
-
-.slot-folder {
-  margin-left: 4px;
-  opacity: 0.7;
-  font-size: 12px;
-}
-
-.kebab-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  font-size: 18px;
-  opacity: 0.6;
-  transition: opacity 0.15s ease;
-}
-
-.kebab-btn:hover {
-  opacity: 1;
-}
-
-.slot-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-2);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  display: flex;
-  flex-direction: column;
-  min-width: 160px;
-  z-index: 1200;
-}
-
-.menu-item {
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  text-align: left;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.menu-item:hover {
-  background: var(--surface-2);
-}
-
-.menu-item.active {
-  background: var(--primary);
-  color: #fff;
-}
-
-.menu-item.danger {
-  color: var(--core);
-}
-
-.menu-item.danger:hover {
-  background: rgba(255,0,0,0.1);
-}
-
-.menu-sep {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-.menu-label {
-  font-size: 12px;
-  opacity: 0.7;
-  padding: 4px 12px;
-}
+/* scrollable body + pinned footer */
+.sidebar-content{ display:flex; flex-direction:column; height:100%; min-height:0; }
+.sidebar-top{ flex:1; min-height:0; overflow:auto; padding-bottom:12px; }
+.sidebar-bottom{ margin-top:auto; }
 
 /* user footer */
-.user-footer {
-  display: flex;
+.user-footer{
+  margin-top:14px; padding:10px; border:1px solid var(--border);
+  background: var(--surface-2); border-radius: 12px;
+  display:flex; align-items:center; gap:10px; cursor:pointer;
+}
+.user-footer:hover{ border-color: var(--primary); }
+.user-footer.login{ background: var(--primary); color:#00131c; justify-content:center; font-weight:600; }
+.avatar{ width:28px; height:28px; border-radius:999px;
+  background: linear-gradient(180deg,var(--primary),var(--primary-600));
+  display:flex; align-items:center; justify-content:center; color:#00131c; font-weight:700;
+}
+.user-meta{ min-width:0; }
+.user-meta .name{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.user-meta .mail{ font-size:.8rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.caret{ margin-left:auto; color:var(--muted); }
+
+.user-menu{
+  margin-top:8px; border:1px solid var(--border); background:var(--surface-2);
+  border-radius:12px; overflow:hidden; box-shadow: var(--shadow-2);
+}
+.user-menu-item{ width:100%; text-align:left; padding:10px 12px; background:transparent; color:inherit; border:none; cursor:pointer; }
+.user-menu-item:hover{ background:rgba(255,255,255,.03); }
+.user-menu-item.danger{ color:#e63946; display:flex; align-items:center; gap:8px; }
+.user-menu-item.danger svg{ width:18px; height:18px; stroke:#e63946; }
+
+/* slots list */
+.slots-list{ display:grid; gap:8px; margin-top:8px; }
+.slot-btn{ width:100%; text-align:left; }
+.slot-btn[aria-current="page"]{ border-color: var(--primary); color: var(--primary); }
+
+/* row wrapper with kebab */
+.slot-row-wrapper{
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-radius: var(--radius-2);
-  cursor: pointer;
-  transition: background 0.15s ease;
+  gap: 6px;
 }
+.slot-title{ pointer-events: none; }
+.slot-folder{ margin-left: 6px; color: var(--muted); font-weight: 600; }
 
-.user-footer:hover {
-  background: var(--surface-2);
+/* kebab button */
+.kebab-btn{
+  appearance:none; border:1px solid var(--border); background: var(--surface-2);
+  color: var(--muted); width: 34px; height: 34px; border-radius: 10px;
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
 }
+.kebab-btn:hover{ color: var(--primary); border-color: var(--primary); }
 
-.user-footer.login {
-  justify-content: center;
-  font-weight: 600;
-  background: var(--primary);
-  color: #fff;
-}
-
-.avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.user-meta {
-  flex: 1;
-  overflow: hidden;
-}
-
-.user-meta .name {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.user-meta .mail {
-  font-size: 12px;
-  opacity: 0.7;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.caret {
-  font-size: 12px;
-  opacity: 0.6;
-}
-
-.user-menu {
+/* dropdown menu for a slot */
+.slot-menu{
   position: absolute;
-  bottom: 48px;
-  left: 12px;
-  background: var(--surface-1);
+  right: 0; top: calc(100% + 6px);
+  min-width: 220px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-2);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  display: flex;
-  flex-direction: column;
-  min-width: 160px;
-  z-index: 1200;
-}
-
-.user-menu-item {
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  text-align: left;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.user-menu-item:hover {
   background: var(--surface-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow-2);
+  z-index: 40;
+  padding: 6px;
+}
+.menu-item{
+  width: 100%; text-align: left;
+  padding: 8px 10px; background: transparent; color: var(--text);
+  border: none; border-radius: 8px; cursor: pointer;
+}
+.menu-item:hover{ background: rgba(255,255,255,.04); }
+.menu-item.active{ background: rgba(0,194,255,.10); border: 1px solid rgba(0,194,255,.25); }
+.menu-item.danger{ color: #e63946; }
+.menu-item.danger:hover{ background: rgba(230,57,70,.12); }
+
+.menu-label{
+  font-size: .82rem; color: var(--muted);
+  padding: 4px 8px 6px; font-weight: 700;
+}
+.menu-sep{ height: 1px; background: var(--border); margin: 6px 2px; }
+
+/* mobile overlay behavior */
+@media (max-width:768px){
+  :root{ --header-h: 60px; }
+  .sidebar{
+    position: fixed;
+    left: 0; right: 0;
+    top: var(--header-h);
+    height: calc(100dvh - var(--header-h));
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    z-index: 999;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .sidebar.open{ transform: translateX(0); }
+  .sidebar-content{ height: 100%; min-height: 0; display:flex; flex-direction:column; overflow:hidden; }
+  .sidebar-top{ flex:1; min-height:0; overflow:auto; padding-bottom:12px; }
 }
 
-.user-menu-item.danger {
-  color: var(--core);
+/* Add only these minimal styles to your existing sidebar.css file */
+
+/* Loading state for optimistic slot buttons */
+.slot-btn.loading {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
-.user-menu-item.danger:hover {
-  background: rgba(255,0,0,0.1);
+/* Simple animation for slot menu */
+.slot-menu {
+  animation: menuSlideIn 0.15s ease-out;
 }
 
-/* --- New minimal styles for Rename & New folder… --- */
-.slot-menu .menu-item:first-of-type { /* Rename */
+@keyframes menuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Emphasize “Rename” (first button) and “New folder…” (2nd from last button) */
+.slot-menu .menu-item:first-of-type {           /* Rename */
   font-weight: 600;
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -275,7 +162,8 @@
   background: rgba(0,0,0,.06);
 }
 
-.slot-menu .menu-item:nth-last-of-type(2) { /* New folder… */
+/* New folder… is the second-to-last button (last is .danger Delete) */
+.slot-menu .menu-item:nth-last-of-type(2) {     /* New folder… */
   font-weight: 600;
   border: 1px dashed var(--border);
   background: var(--surface-2);
@@ -286,6 +174,7 @@
   background: rgba(0,0,0,.06);
 }
 
-.slot-menu .menu-item {
+/* Keep hover + active states minimal and on brand */
+.slot-menu .menu-item { 
   transition: border-color .15s ease, background-color .15s ease, color .15s ease;
 }
