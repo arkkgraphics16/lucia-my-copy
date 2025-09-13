@@ -147,25 +147,30 @@
     --sidebar-width: 280px; /* Reset for mobile calculations */
   }
   
-  /* Full width layout on mobile */
-  .thread,
+  /* Full width layout on mobile - remove constraints */
+  .thread {
+    width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  
   .limit-banner {
     max-width: 100%;
     padding-left: 12px;
     padding-right: 12px;
   }
   
-  /* Mobile bubble positioning */
+  /* Mobile bubble positioning - give more breathing room */
   .bubble.assistant {
-    max-width: 85%;
-    margin-left: 0;
+    max-width: 90%;
+    margin-left: 2%;
     margin-right: auto; /* Left side */
   }
   
   .bubble.user {
-    max-width: 80%;
+    max-width: 90%;
     margin-left: auto;
-    margin-right: 0; /* Right side */
+    margin-right: 2%; /* Right side */
   }
   
   /* Hide bottom usage chip on mobile */
