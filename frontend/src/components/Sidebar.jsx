@@ -54,7 +54,7 @@ export default function Sidebar({ open, onClose }) {
   const [newFolderFor, setNewFolderFor] = useState(null)   // { cid }
   const [newFolderValue, setNewFolderValue] = useState('')
 
-  const firstPrompt = "I don’t even know what I’ve gotten myself into. Give me light on this."
+  const firstPrompt = "I donâ€™t even know what Iâ€™ve gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
 
@@ -174,6 +174,16 @@ export default function Sidebar({ open, onClose }) {
     setNewFolderFor(null)
   }
 
+  // NEW: Handle navigation to legal pages
+  function navigateToPage(page) {
+    setMenuOpen(false)
+    const url = new URL(window.location.href)
+    url.searchParams.set('page', page)
+    window.history.pushState({}, '', url)
+    window.dispatchEvent(new CustomEvent('lucia:navigate-page', { detail: { page } }))
+    onClose?.()
+  }
+
   const openLoginModal = () => window.dispatchEvent(new CustomEvent('lucia:show-login'))
 
   return (
@@ -223,7 +233,7 @@ export default function Sidebar({ open, onClose }) {
             <div className="slots-list" ref={kebabRef}>
               {visibleConvos.length === 0 ? (
                 <button className="chip slot-btn" onClick={handleNewChat}>
-                  No chats yet — create one
+                  No chats yet â€" create one
                 </button>
               ) : (
                 visibleConvos.map(c => (
@@ -235,14 +245,14 @@ export default function Sidebar({ open, onClose }) {
                       title={c.title || 'Untitled'}
                     >
                       <span className="slot-title">{c.title || 'Untitled'}</span>
-                      {c.folder && <span className="slot-folder">• {c.folder}</span>}
+                      {c.folder && <span className="slot-folder">â€¢ {c.folder}</span>}
                     </button>
 
                     <button
                       className="kebab-btn"
                       title="Options"
                       onClick={(e)=>{ e.stopPropagation(); setOpenKebabFor(openKebabFor === c.id ? null : c.id) }}
-                    >⋯</button>
+                    >â‹¯</button>
 
                     {openKebabFor === c.id && (
                       <div className="slot-menu">
@@ -274,7 +284,7 @@ export default function Sidebar({ open, onClose }) {
                           className="menu-item new-folder-item"
                           onClick={(e)=>{ e.stopPropagation(); openNewFolderModal(c.id) }}
                         >
-                          New folder…
+                          New folderâ€¦
                         </button>
 
                         <div className="menu-sep"></div>
@@ -306,11 +316,39 @@ export default function Sidebar({ open, onClose }) {
                   <div className="name">{displayName}</div>
                   <div className="mail">{email}</div>
                 </div>
-                <div className="caret">▾</div>
+                <div className="caret">â–¾</div>
               </div>
 
               {menuOpen && (
                 <div className="user-menu">
+                  <button
+                    className="user-menu-item"
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      navigateToPage('terms');
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Terms of Service
+                  </button>
+                  
+                  <button
+                    className="user-menu-item"
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      navigateToPage('privacy');
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    Privacy Policy
+                  </button>
+                  
+                  <div className="menu-sep"></div>
+                  
                   <button
                     className="user-menu-item danger"
                     onClick={async (e) => { e.stopPropagation(); setMenuOpen(false); await (await import('../firebase')).signOut(auth) }}
