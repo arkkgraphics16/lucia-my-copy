@@ -18,6 +18,7 @@ import {
 } from "../firebase"
 import LoginForm from "../components/LoginForm"
 import EmailVerifyBanner from "../components/EmailVerifyBanner"
+import LegalPages from "./LegalPages"   // NEW
 
 // styles
 import "../styles/limit.css"
@@ -37,11 +38,6 @@ const DEFAULT_SYSTEM =
   "L.U.C.I.A. – Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
 
 /* ------------------------------ DATA HARDENING ------------------------------ */
-/** Normalize only when a field is MISSING or WRONG TYPE. Never re-write equal values.
- *  - tier: string ("free" default)
- *  - exchanges_used: number (0 default)
- *  - courtesy_used: boolean (false default; preserves string 'true' → true, 'false' → false)
- */
 async function normalizeUserDoc(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
@@ -50,46 +46,34 @@ async function normalizeUserDoc(uid) {
     const cur = snap.data() || {}
     const next = {}
 
-    // tier
     if (typeof cur.tier !== "string") {
       next.tier = String(cur.tier ?? "free")
     }
 
-    // exchanges_used
     if (typeof cur.exchanges_used !== "number") {
       const n = Number(cur.exchanges_used ?? 0)
-      if (!Number.isFinite(n)) next.exchanges_used = 0
-      else next.exchanges_used = n
+      next.exchanges_used = Number.isFinite(n) ? n : 0
     }
 
-    // courtesy_used
     if (typeof cur.courtesy_used !== "boolean") {
-      // Only set when not boolean; preserve truthy 'true' string
       const raw = cur.courtesy_used
       let coerced = false
-      if (typeof raw === "string") {
-        coerced = raw.toLowerCase() === "true"
-      } else {
-        coerced = !!raw
-      }
+      if (typeof raw === "string") coerced = raw.toLowerCase() === "true"
+      else coerced = !!raw
       next.courtesy_used = coerced
     }
 
-    if (Object.keys(next).length > 0) {
-      tx.update(ref, next)
-    }
+    if (Object.keys(next).length > 0) tx.update(ref, next)
   })
 }
 
 /* ------------------------------ COURTESY ACCEPT ----------------------------- */
-/** Must atomically write: exchanges_used: 11 AND courtesy_used: true */
 async function acceptCourtesy(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref)
     if (!snap.exists()) throw new Error("User doc missing")
     const cur = snap.data() || {}
-
     const tier = typeof cur.tier === "string" ? cur.tier : "free"
     const used = typeof cur.exchanges_used === "number" ? cur.exchanges_used : Number(cur.exchanges_used ?? 0)
     const courtesy = typeof cur.courtesy_used === "boolean"
@@ -105,7 +89,6 @@ async function acceptCourtesy(uid) {
 }
 
 /* --------------------------- SAFE USAGE INCREMENT --------------------------- */
-/** Mirrors your rules precisely. */
 async function safeIncrementUsage(uid) {
   const ref = doc(db, "users", uid)
   await runTransaction(db, async (tx) => {
@@ -138,34 +121,32 @@ async function safeIncrementUsage(uid) {
 
 export default function ChatPage() {
   const { user } = useAuthToken()
-
   const [msgs, setMsgs] = useState([])
   const [text, setText] = useState("")
   const [busy, setBusy] = useState(false)
 
-  // Live user profile
   const [profile, setProfile] = useState(null)
-
-  // UI flags
   const [capHit, setCapHit] = useState(false)
   const [showCourtesy, setShowCourtesy] = useState(false)
   const [loadingThread, setLoadingThread] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
-
   const [system] = useState(DEFAULT_SYSTEM)
+  const [conversationId, setConversationId] = useState(() => new URLSearchParams(window.location.search).get("c") || null)
 
-  // conversation id from ?c=<id>
-  const [conversationId, setConversationId] = useState(() => {
-    return new URLSearchParams(window.location.search).get("c") || null
-  })
+  // NEW: Legal overlay state
+  const getPageFromURL = () => {
+    const sp = new URLSearchParams(window.location.search)
+    const p = sp.get("page")
+    return (p === "terms" || p === "privacy") ? p : null
+  }
+  const [legalPage, setLegalPage] = useState(getPageFromURL())
 
-  // quick prompt -> composer
   useEffect(() => {
     const off = onQuickPrompt((t) => setText(String(t || "")))
     return off
   }, [])
 
-  // Complete Email Link sign-in if the URL contains an OOB code
+  // Email link sign-in
   useEffect(() => {
     (async () => {
       try {
@@ -182,7 +163,6 @@ export default function ChatPage() {
         if (auth.currentUser?.uid) await ensureUser(auth.currentUser.uid)
         setShowLogin(false)
 
-        // Clean URL (drop Firebase query params but keep ?c)
         const clean = new URL(window.location.origin + window.location.pathname + window.location.search)
         clean.searchParams.delete("oobCode")
         clean.searchParams.delete("mode")
@@ -194,14 +174,14 @@ export default function ChatPage() {
     })()
   }, [])
 
-  // sidebar event to open login
+  // Sidebar → show login
   useEffect(() => {
     const open = () => setShowLogin(true)
     window.addEventListener("lucia:show-login", open)
     return () => window.removeEventListener("lucia:show-login", open)
   }, [])
 
-  // handle external chat switch + back/forward
+  // Sidebar → switch chat
   useEffect(() => {
     const onSwitch = (e) => {
       const cid = e.detail?.cid
@@ -215,6 +195,7 @@ export default function ChatPage() {
       setMsgs([])
       setLoadingThread(true)
       setConversationId(cid)
+      setLegalPage(getPageFromURL()) // NEW: also update legal overlay
     }
     window.addEventListener("lucia:switch-chat", onSwitch)
     window.addEventListener("popstate", onPop)
@@ -224,7 +205,17 @@ export default function ChatPage() {
     }
   }, [])
 
-  // live message listener for the active conversation
+  // NEW: Sidebar → legal page navigation
+  useEffect(() => {
+    function onNavigate(e){
+      const page = e?.detail?.page
+      if (page === "terms" || page === "privacy") setLegalPage(page)
+    }
+    window.addEventListener("lucia:navigate-page", onNavigate)
+    return () => window.removeEventListener("lucia:navigate-page", onNavigate)
+  }, [])
+
+  // Live messages
   useEffect(() => {
     if (!conversationId || !user?.uid) return
     setLoadingThread(true)
@@ -232,29 +223,23 @@ export default function ChatPage() {
       setMsgs(rows)
       setLoadingThread(false)
     })
-    return () => {
-      setLoadingThread(true)
-      unsub && unsub()
-    }
+    return () => { setLoadingThread(true); unsub && unsub() }
   }, [conversationId, user?.uid])
 
-  // Ensure user doc exists, normalize it once, and subscribe live to /users/{uid}
+  // Live profile
   useEffect(() => {
     if (!user?.uid) return
     let unsub = null
     ;(async () => {
       await ensureUser(user.uid)
-      try { await normalizeUserDoc(user.uid) } catch (e) { console.warn("normalizeUserDoc:", e) }
-
+      try { await normalizeUserDoc(user.uid) } catch {}
       const ref = doc(db, "users", user.uid)
-      unsub = onSnapshot(ref, (snap) => {
-        setProfile(snap.exists() ? snap.data() : null)
-      })
+      unsub = onSnapshot(ref, (snap) => setProfile(snap.exists() ? snap.data() : null))
     })()
     return () => unsub && unsub()
   }, [user?.uid])
 
-  // Derived quota
+  // Quota
   const quota = useMemo(() => {
     if (!profile) return { isPro: false, used: 0, courtesy: false, total: 10, remaining: 0 }
     const isPro = profile.tier === "pro"
@@ -267,67 +252,38 @@ export default function ChatPage() {
     return { isPro, used, courtesy, total, remaining }
   }, [profile])
 
-  // Show/Hide courtesy & cap banner based on live quota
   useEffect(() => {
-    if (!quota || quota.isPro) {
-      setShowCourtesy(false)
-      setCapHit(false)
-      return
-    }
-    if (quota.used === 10 && !quota.courtesy) {
-      setShowCourtesy(true)
-      setCapHit(false)
-      return
-    }
-    if (quota.courtesy && quota.used >= 12) {
-      setShowCourtesy(false)
-      setCapHit(true)
-      return
-    }
+    if (!quota || quota.isPro) { setShowCourtesy(false); setCapHit(false); return }
+    if (quota.used === 10 && !quota.courtesy) { setShowCourtesy(true); setCapHit(false); return }
+    if (quota.courtesy && quota.used >= 12) { setShowCourtesy(false); setCapHit(true); return }
     setCapHit(false)
   }, [quota])
 
   async function ensureLogin() {
-    if (!auth.currentUser) {
-      setShowLogin(true)
-      throw new Error("Login required")
-    }
+    if (!auth.currentUser) { setShowLogin(true); throw new Error("Login required") }
     const uid = auth.currentUser.uid
     await ensureUser(uid)
     return uid
   }
 
-  // Courtesy handlers
   async function handleCourtesyAccept() {
     try {
       const uid = auth.currentUser?.uid
       if (!uid) return setShowLogin(true)
-
-      // Re-check but only normalize if types are wrong/missing (won't write false→false)
       await normalizeUserDoc(uid)
-
-      // LEGAL single write: 10→11 + courtesy_used:true
       await acceptCourtesy(uid)
       setShowCourtesy(false)
-    } catch (e) {
-      console.error("Courtesy accept failed:", e)
-    }
+    } catch (e) { console.error("Courtesy accept failed:", e) }
   }
-  function handleCourtesyDecline() {
-    setShowCourtesy(false)
-    setCapHit(true)
-  }
+  function handleCourtesyDecline() { setShowCourtesy(false); setCapHit(true) }
 
   async function send() {
     const content = text.trim()
     if (!content) return
     setBusy(true)
     setText("")
-
     try {
       const uid = await ensureLogin()
-
-      // bootstrap conversation
       let cid = conversationId
       if (!cid) {
         const title = content.slice(0, 48)
@@ -339,67 +295,38 @@ export default function ChatPage() {
       } else if (msgs.length === 0) {
         await setConversationTitle(uid, cid, content.slice(0, 48))
       }
-
-      // block at limits using live quota
       if (!quota.isPro) {
-        if (quota.used === 10 && !quota.courtesy) {
-          setShowCourtesy(true)
-          setBusy(false)
-          return
-        }
+        if (quota.used === 10 && !quota.courtesy) { setShowCourtesy(true); setBusy(false); return }
         const hardTotal = quota.courtesy ? 12 : 10
-        if (quota.used >= hardTotal) {
-          setCapHit(true)
-          setBusy(false)
-          return
-        }
+        if (quota.used >= hardTotal) { setCapHit(true); setBusy(false); return }
       }
-
-      // push user message
       await addMessage(uid, cid, "user", content)
-
-      // build worker payload
       const workerMessages = msgs.map(m => ({ role: m.role, content: m.content }))
       workerMessages.push({ role: "user", content })
-
       const res = await fetch(WORKER_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ system, messages: workerMessages })
       })
-
       const bodyText = await res.text()
       let data = {}
-      try { data = JSON.parse(bodyText) } catch { data = {} }
-
+      try { data = JSON.parse(bodyText) } catch {}
       if (!res.ok || data?.ok !== true) {
         await addMessage(uid, cid, "assistant", `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
         await bumpUpdatedAt(uid, cid)
         setBusy(false)
         return
       }
-
       await addMessage(uid, cid, "assistant", data.reply || "(no reply)")
       await bumpUpdatedAt(uid, cid)
-
-      // count usage (transactional and rule-compliant)
-      if (!quota.isPro) {
-        await safeIncrementUsage(uid)
-      }
+      if (!quota.isPro) await safeIncrementUsage(uid)
     } catch (err) {
-      if (String(err?.message || "").toLowerCase() !== "login required") {
-        console.error(err)
-      }
-    } finally {
-      setBusy(false)
-    }
+      if (String(err?.message || "").toLowerCase() !== "login required") console.error(err)
+    } finally { setBusy(false) }
   }
 
-  function cancel() {
-    setBusy(false)
-  }
+  function cancel() { setBusy(false) }
 
-  // Usage indicator values
   const usageDisplay = useMemo(() => {
     if (!profile || quota.isPro) return null
     const total = quota.courtesy ? 12 : 10
@@ -407,21 +334,17 @@ export default function ChatPage() {
     return { current, total }
   }, [profile, quota])
 
+  function closeLegal(){
+    const url = new URL(window.location.href)
+    url.searchParams.delete("page")
+    window.history.pushState({}, "", url)
+    setLegalPage(null)
+  }
+
   return (
     <>
-      {showLogin && (
-        <LoginForm onClose={() => setShowLogin(false)} onLogin={() => setShowLogin(false)} />
-      )}
-
-      {/* Courtesy Popup */}
-      {showCourtesy && (
-        <CourtesyPopup
-          onAccept={handleCourtesyAccept}
-          onDecline={handleCourtesyDecline}
-        />
-      )}
-
-      {/* Email verify banner */}
+      {showLogin && <LoginForm onClose={() => setShowLogin(false)} onLogin={() => setShowLogin(false)} />}
+      {showCourtesy && <CourtesyPopup onAccept={handleCourtesyAccept} onDecline={handleCourtesyDecline} />}
       {user && user.email && !user.emailVerified && <EmailVerifyBanner />}
 
       {capHit && (
@@ -446,9 +369,7 @@ export default function ChatPage() {
         ) : (
           <>
             {msgs.map((m) => (
-              <MessageBubble key={m.id} role={m.role}>
-                {m.content}
-              </MessageBubble>
+              <MessageBubble key={m.id} role={m.role}>{m.content}</MessageBubble>
             ))}
             {busy && (
               <MessageBubble role="assistant">
@@ -461,25 +382,17 @@ export default function ChatPage() {
 
       <Composer value={text} setValue={setText} onSend={send} onCancel={cancel} busy={busy} />
 
-      {/* Usage indicator */}
       {usageDisplay && !capHit && !showCourtesy && (
-        <div
-          className={
-            "usage-indicator usage-indicator--sm " +
-            (quota.remaining > 2
-              ? "usage-indicator--ok"
-              : quota.remaining > 0
-              ? "usage-indicator--warn"
-              : "usage-indicator--bad")
-          }
-        >
+        <div className={"usage-indicator usage-indicator--sm " +
+          (quota.remaining > 2 ? "usage-indicator--ok" : quota.remaining > 0 ? "usage-indicator--warn" : "usage-indicator--bad")}>
           <span className="usage-indicator__dot"></span>
-          <span className="usage-indicator__count">
-            {usageDisplay.current}/{usageDisplay.total}
-          </span>
+          <span className="usage-indicator__count">{usageDisplay.current}/{usageDisplay.total}</span>
           <span className="usage-indicator__label">messages used</span>
         </div>
       )}
+
+      {/* LEGAL OVERLAY */}
+      {legalPage && <LegalPages page={legalPage} onBack={closeLegal} />}
     </>
   )
 }
