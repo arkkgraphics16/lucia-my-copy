@@ -1,3 +1,4 @@
+// lucia-secure/frontend/src/components/Sidebar.jsx
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
@@ -11,8 +12,8 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 import '../styles/slots.css'
 import '../styles/sidebar.css'
 
-function InlineModal({ title, value, setValue, onCancel, onSave, placeholder, okLabel="OK" }) {
-  function onKey(e){
+function InlineModal({ title, value, setValue, onCancel, onSave, placeholder, okLabel = "OK" }) {
+  function onKey(e) {
     if (e.key === 'Enter') onSave()
     if (e.key === 'Escape') onCancel()
   }
@@ -26,7 +27,7 @@ function InlineModal({ title, value, setValue, onCancel, onSave, placeholder, ok
           type="text"
           value={value}
           placeholder={placeholder}
-          onChange={e=>setValue(e.target.value)}
+          onChange={e => setValue(e.target.value)}
           onKeyDown={onKey}
         />
         <div className="slotmodal-actions">
@@ -48,13 +49,8 @@ export default function Sidebar({ open, onClose }) {
   const [openKebabFor, setOpenKebabFor] = useState(null)
   const kebabRef = useRef(null)
 
-  // modal state (replaces window.prompt)
-  const [renameFor, setRenameFor] = useState(null)         // { cid, currentTitle }
-  const [renameValue, setRenameValue] = useState('')
-  const [newFolderFor, setNewFolderFor] = useState(null)   // { cid }
-  const [newFolderValue, setNewFolderValue] = useState('')
-
-  const firstPrompt = "I donâ€™t even know what Iâ€™ve gotten myself into. Give me light on this."
+  // CLEAN: no smart quotes/Unicode junk
+  const firstPrompt = "I don't even know what I've gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
 
@@ -63,7 +59,7 @@ export default function Sidebar({ open, onClose }) {
   const currentCid = new URLSearchParams(window.location.search).get('c') || null
 
   useEffect(() => {
-    function onClick(e){
+    function onClick(e) {
       if (!kebabRef.current) return
       if (!kebabRef.current.contains(e.target)) setOpenKebabFor(null)
     }
@@ -102,7 +98,7 @@ export default function Sidebar({ open, onClose }) {
   const folders = useMemo(() => {
     const s = new Set()
     for (const c of convos) if (c.folder) s.add(c.folder)
-    return Array.from(s).sort((a,b)=>a.localeCompare(b))
+    return Array.from(s).sort((a, b) => a.localeCompare(b))
   }, [convos])
 
   const visibleConvos = useMemo(() => {
@@ -147,12 +143,14 @@ export default function Sidebar({ open, onClose }) {
     setOpenKebabFor(null)
   }
 
-  // --- NEW: modal open/confirm handlers ---
+  // --- modal helpers ---
   function openRenameModal(cid, currentTitle) {
     setOpenKebabFor(null)
     setRenameFor({ cid, currentTitle })
     setRenameValue(currentTitle || '')
   }
+  const [renameFor, setRenameFor] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
   async function confirmRename() {
     if (!user?.uid || !renameFor) return
     const next = renameValue.trim()
@@ -166,6 +164,8 @@ export default function Sidebar({ open, onClose }) {
     setNewFolderFor({ cid })
     setNewFolderValue('')
   }
+  const [newFolderFor, setNewFolderFor] = useState(null)
+  const [newFolderValue, setNewFolderValue] = useState('')
   async function confirmNewFolder() {
     if (!user?.uid || !newFolderFor) return
     const name = newFolderValue.trim().slice(0, 48)
@@ -174,7 +174,7 @@ export default function Sidebar({ open, onClose }) {
     setNewFolderFor(null)
   }
 
-  // NEW: Handle navigation to legal pages
+  // NAV: legal pages (already used elsewhere)
   function navigateToPage(page) {
     setMenuOpen(false)
     const url = new URL(window.location.href)
@@ -185,6 +185,20 @@ export default function Sidebar({ open, onClose }) {
   }
 
   const openLoginModal = () => window.dispatchEvent(new CustomEvent('lucia:show-login'))
+
+  // Small SVGs to avoid Unicode glitches
+  const Ellipsis = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="5" cy="12" r="2" fill="currentColor" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" />
+      <circle cx="19" cy="12" r="2" fill="currentColor" />
+    </svg>
+  )
+  const CaretDown = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 10l5 5 5-5H7z" fill="currentColor" />
+    </svg>
+  )
 
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
@@ -233,7 +247,7 @@ export default function Sidebar({ open, onClose }) {
             <div className="slots-list" ref={kebabRef}>
               {visibleConvos.length === 0 ? (
                 <button className="chip slot-btn" onClick={handleNewChat}>
-                  No chats yet â€" create one
+                  No chats yet - create one
                 </button>
               ) : (
                 visibleConvos.map(c => (
@@ -245,20 +259,23 @@ export default function Sidebar({ open, onClose }) {
                       title={c.title || 'Untitled'}
                     >
                       <span className="slot-title">{c.title || 'Untitled'}</span>
-                      {c.folder && <span className="slot-folder">â€¢ {c.folder}</span>}
+                      {c.folder && <span className="slot-folder">• {c.folder}</span>}
                     </button>
 
                     <button
                       className="kebab-btn"
                       title="Options"
-                      onClick={(e)=>{ e.stopPropagation(); setOpenKebabFor(openKebabFor === c.id ? null : c.id) }}
-                    >â‹¯</button>
+                      onClick={(e) => { e.stopPropagation(); setOpenKebabFor(openKebabFor === c.id ? null : c.id) }}
+                      aria-label="Conversation options"
+                    >
+                      <Ellipsis />
+                    </button>
 
                     {openKebabFor === c.id && (
                       <div className="slot-menu">
                         <button
                           className="menu-item rename-item"
-                          onClick={(e)=>{ e.stopPropagation(); openRenameModal(c.id, c.title) }}
+                          onClick={(e) => { e.stopPropagation(); openRenameModal(c.id, c.title) }}
                         >
                           Rename
                         </button>
@@ -267,7 +284,7 @@ export default function Sidebar({ open, onClose }) {
                         <div className="menu-label">Move to folder</div>
                         <button
                           className="menu-item"
-                          onClick={(e)=>{ e.stopPropagation(); setConversationFolder(user.uid, c.id, null); setOpenKebabFor(null) }}
+                          onClick={(e) => { e.stopPropagation(); setConversationFolder(user.uid, c.id, null); setOpenKebabFor(null) }}
                         >
                           Unfiled
                         </button>
@@ -275,22 +292,22 @@ export default function Sidebar({ open, onClose }) {
                           <button
                             key={f}
                             className={`menu-item${c.folder === f ? ' active' : ''}`}
-                            onClick={(e)=>{ e.stopPropagation(); setConversationFolder(user.uid, c.id, f); setOpenKebabFor(null) }}
+                            onClick={(e) => { e.stopPropagation(); setConversationFolder(user.uid, c.id, f); setOpenKebabFor(null) }}
                           >
                             {f}
                           </button>
                         ))}
                         <button
                           className="menu-item new-folder-item"
-                          onClick={(e)=>{ e.stopPropagation(); openNewFolderModal(c.id) }}
+                          onClick={(e) => { e.stopPropagation(); openNewFolderModal(c.id) }}
                         >
-                          New folderâ€¦
+                          New folder...
                         </button>
 
                         <div className="menu-sep"></div>
                         <button
                           className="menu-item danger"
-                          onClick={(e)=>{ e.stopPropagation(); handleDeleteChat(c.id) }}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteChat(c.id) }}
                         >
                           Delete
                         </button>
@@ -311,55 +328,43 @@ export default function Sidebar({ open, onClose }) {
           ) : (
             <>
               <div className="user-footer" onClick={() => setMenuOpen((s) => !s)} title={email}>
-                <div className="avatar">{(displayName || 'U').slice(0,1).toUpperCase()}</div>
+                <div className="avatar">{(displayName || 'U').slice(0, 1).toUpperCase()}</div>
                 <div className="user-meta">
                   <div className="name">{displayName}</div>
                   <div className="mail">{email}</div>
                 </div>
-                <div className="caret">â–¾</div>
+                <div className="caret"><CaretDown /></div>
               </div>
 
               {menuOpen && (
                 <div className="user-menu">
                   <button
                     className="user-menu-item"
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      navigateToPage('terms');
-                    }}
+                    onClick={(e) => { e.stopPropagation(); navigateToPage('terms') }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
                     Terms of Service
                   </button>
-                  
                   <button
                     className="user-menu-item"
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      navigateToPage('privacy');
-                    }}
+                    onClick={(e) => { e.stopPropagation(); navigateToPage('privacy') }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
                     Privacy Policy
                   </button>
-                  
                   <div className="menu-sep"></div>
-                  
                   <button
                     className="user-menu-item danger"
-                    onClick={async (e) => { e.stopPropagation(); setMenuOpen(false); await (await import('../firebase')).signOut(auth) }}
+                    onClick={async (e) => { e.stopPropagation(); setMenuOpen(false); (await import('../firebase')).signOut(auth) }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12H3m12 0l-4-4m4 4l-4 4m8-8V6a2 2 0 00-2-2h-4M19 10v4a2 2 0 01-2 2h-4"/>
-                    </svg>
                     Sign out
                   </button>
                 </div>
               )}
+
+              {/* Always-visible legal links for quick access */}
+              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                <button className="user-menu-item" onClick={() => navigateToPage('terms')}>Terms of Service</button>
+                <button className="user-menu-item" onClick={() => navigateToPage('privacy')}>Privacy Policy</button>
+              </div>
             </>
           )}
         </div>
@@ -372,7 +377,7 @@ export default function Sidebar({ open, onClose }) {
           value={renameValue}
           setValue={setRenameValue}
           placeholder="Untitled"
-          onCancel={()=>setRenameFor(null)}
+          onCancel={() => setRenameFor(null)}
           onSave={confirmRename}
           okLabel="Save"
         />
@@ -383,7 +388,7 @@ export default function Sidebar({ open, onClose }) {
           value={newFolderValue}
           setValue={setNewFolderValue}
           placeholder="e.g., Research"
-          onCancel={()=>setNewFolderFor(null)}
+          onCancel={() => setNewFolderFor(null)}
           onSave={confirmNewFolder}
           okLabel="Create"
         />
