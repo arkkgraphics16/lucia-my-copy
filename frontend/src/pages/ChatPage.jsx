@@ -18,7 +18,7 @@ import {
 } from "../firebase"
 import LoginForm from "../components/LoginForm"
 import EmailVerifyBanner from "../components/EmailVerifyBanner"
-import LegalPages from "./LegalPages"   // NEW
+import LegalPages from "../components/LegalPages"   
 
 // styles
 import "../styles/limit.css"
