@@ -1,4 +1,3 @@
-// lucia-secure/frontend/src/components/Sidebar.jsx
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { emitQuickPrompt } from '../lib/bus'
 import { useAuthToken } from '../hooks/useAuthToken'
@@ -49,7 +48,7 @@ export default function Sidebar({ open, onClose }) {
   const [openKebabFor, setOpenKebabFor] = useState(null)
   const kebabRef = useRef(null)
 
-  // CLEAN: no smart quotes/Unicode junk
+  // Clean ASCII (no smart quotes)
   const firstPrompt = "I don't even know what I've gotten myself into. Give me light on this."
   const chips = [firstPrompt, 'Summarize', 'Explain', 'Improve tone', 'List steps', 'Generate plan']
   const clickChip = (text) => { emitQuickPrompt(text); onClose?.() }
@@ -143,7 +142,7 @@ export default function Sidebar({ open, onClose }) {
     setOpenKebabFor(null)
   }
 
-  // --- modal helpers ---
+  // Rename / folder modals
   function openRenameModal(cid, currentTitle) {
     setOpenKebabFor(null)
     setRenameFor({ cid, currentTitle })
@@ -174,7 +173,7 @@ export default function Sidebar({ open, onClose }) {
     setNewFolderFor(null)
   }
 
-  // NAV: legal pages (already used elsewhere)
+  // Navigate to Legal pages (emit event + URL param)
   function navigateToPage(page) {
     setMenuOpen(false)
     const url = new URL(window.location.href)
@@ -186,7 +185,7 @@ export default function Sidebar({ open, onClose }) {
 
   const openLoginModal = () => window.dispatchEvent(new CustomEvent('lucia:show-login'))
 
-  // Small SVGs to avoid Unicode glitches
+  // Small inline SVGs to avoid Unicode rendering bugs
   const Ellipsis = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="5" cy="12" r="2" fill="currentColor" />
@@ -204,25 +203,14 @@ export default function Sidebar({ open, onClose }) {
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-content">
         <div className="sidebar-top">
-          {/* Folders */}
           <h4>Folders</h4>
           <div className="chips-wrap">
-            <span
-              className={`chip${currentFolder === null ? ' active' : ''}`}
-              onClick={() => setCurrentFolder(null)}
-              title="All chats"
-            >All</span>
+            <span className={`chip${currentFolder === null ? ' active' : ''}`} onClick={() => setCurrentFolder(null)} title="All chats">All</span>
             {folders.map(f => (
-              <span
-                key={f}
-                className={`chip${currentFolder === f ? ' active' : ''}`}
-                onClick={() => setCurrentFolder(f)}
-                title={f}
-              >{f}</span>
+              <span key={f} className={`chip${currentFolder === f ? ' active' : ''}`} onClick={() => setCurrentFolder(f)} title={f}>{f}</span>
             ))}
           </div>
 
-          {/* Quick Prompts */}
           <h4 style={{ marginTop: 16 }}>Quick Prompts</h4>
           <div className="chips-wrap">
             <span className="chip" onClick={handleNewChat}>+ New chat</span>
@@ -231,7 +219,6 @@ export default function Sidebar({ open, onClose }) {
             ))}
           </div>
 
-          {/* Chats */}
           <h4 style={{ marginTop: 16 }}>Slots</h4>
           {!user ? (
             <div className="chips-wrap">
@@ -246,9 +233,7 @@ export default function Sidebar({ open, onClose }) {
           ) : (
             <div className="slots-list" ref={kebabRef}>
               {visibleConvos.length === 0 ? (
-                <button className="chip slot-btn" onClick={handleNewChat}>
-                  No chats yet - create one
-                </button>
+                <button className="chip slot-btn" onClick={handleNewChat}>No chats yet — create one</button>
               ) : (
                 visibleConvos.map(c => (
                   <div key={c.id} className="slot-row-wrapper">
@@ -273,44 +258,18 @@ export default function Sidebar({ open, onClose }) {
 
                     {openKebabFor === c.id && (
                       <div className="slot-menu">
-                        <button
-                          className="menu-item rename-item"
-                          onClick={(e) => { e.stopPropagation(); openRenameModal(c.id, c.title) }}
-                        >
-                          Rename
-                        </button>
+                        <button className="menu-item rename-item" onClick={(e) => { e.stopPropagation(); openRenameModal(c.id, c.title) }}>Rename</button>
 
                         <div className="menu-sep"></div>
                         <div className="menu-label">Move to folder</div>
-                        <button
-                          className="menu-item"
-                          onClick={(e) => { e.stopPropagation(); setConversationFolder(user.uid, c.id, null); setOpenKebabFor(null) }}
-                        >
-                          Unfiled
-                        </button>
+                        <button className="menu-item" onClick={(e) => { e.stopPropagation(); setConversationFolder(user.uid, c.id, null); setOpenKebabFor(null) }}>Unfiled</button>
                         {folders.map(f => (
-                          <button
-                            key={f}
-                            className={`menu-item${c.folder === f ? ' active' : ''}`}
-                            onClick={(e) => { e.stopPropagation(); setConversationFolder(user.uid, c.id, f); setOpenKebabFor(null) }}
-                          >
-                            {f}
-                          </button>
+                          <button key={f} className={`menu-item${c.folder === f ? ' active' : ''}`} onClick={(e) => { e.stopPropagation(); setConversationFolder(user.uid, c.id, f); setOpenKebabFor(null) }}>{f}</button>
                         ))}
-                        <button
-                          className="menu-item new-folder-item"
-                          onClick={(e) => { e.stopPropagation(); openNewFolderModal(c.id) }}
-                        >
-                          New folder...
-                        </button>
+                        <button className="menu-item new-folder-item" onClick={(e) => { e.stopPropagation(); openNewFolderModal(c.id) }}>New folder…</button>
 
                         <div className="menu-sep"></div>
-                        <button
-                          className="menu-item danger"
-                          onClick={(e) => { e.stopPropagation(); handleDeleteChat(c.id) }}
-                        >
-                          Delete
-                        </button>
+                        <button className="menu-item danger" onClick={(e) => { e.stopPropagation(); handleDeleteChat(c.id) }}>Delete</button>
                       </div>
                     )}
                   </div>
@@ -322,9 +281,7 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="sidebar-bottom">
           {!user ? (
-            <button className="user-footer login" onClick={openLoginModal}>
-              Log in
-            </button>
+            <button className="user-footer login" onClick={openLoginModal}>Log in</button>
           ) : (
             <>
               <div className="user-footer" onClick={() => setMenuOpen((s) => !s)} title={email}>
@@ -338,16 +295,10 @@ export default function Sidebar({ open, onClose }) {
 
               {menuOpen && (
                 <div className="user-menu">
-                  <button
-                    className="user-menu-item"
-                    onClick={(e) => { e.stopPropagation(); navigateToPage('terms') }}
-                  >
+                  <button className="user-menu-item" onClick={(e) => { e.stopPropagation(); navigateToPage('terms') }}>
                     Terms of Service
                   </button>
-                  <button
-                    className="user-menu-item"
-                    onClick={(e) => { e.stopPropagation(); navigateToPage('privacy') }}
-                  >
+                  <button className="user-menu-item" onClick={(e) => { e.stopPropagation(); navigateToPage('privacy') }}>
                     Privacy Policy
                   </button>
                   <div className="menu-sep"></div>
@@ -359,12 +310,6 @@ export default function Sidebar({ open, onClose }) {
                   </button>
                 </div>
               )}
-
-              {/* Always-visible legal links for quick access */}
-              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-                <button className="user-menu-item" onClick={() => navigateToPage('terms')}>Terms of Service</button>
-                <button className="user-menu-item" onClick={() => navigateToPage('privacy')}>Privacy Policy</button>
-              </div>
             </>
           )}
         </div>
