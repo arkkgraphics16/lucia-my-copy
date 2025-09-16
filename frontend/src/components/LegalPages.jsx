@@ -30,7 +30,7 @@ function TermsOfService({ onBack }) {
 
           <section>
             <h2>2. Description of Service</h2>
-            <p>L.U.C.I.A. (Logical Understanding & Clarification of Interpersonal Agendas) is an AI assistant designed to provide context and strategic insights for interpersonal situations. The service is provided for informational purposes only.</p>
+            <p>LUCIA is an AI-powered assistant that provides context and perspective to users’ situations through what we call Digital Intuition. LUCIA infers meaning from minimal details, may sometimes generate responses that feel highly accurate, and at other times may introduce noise or lose coherence. LUCIA also includes a random, statistical component in her reasoning. The underlying AI never gives the same answer twice, and this variability is not under our control. LUCIA’s role is to highlight blind spots and create perspective. She does not provide medical, legal, or financial advice. You should not rely on her outputs as absolute truth, and you remain responsible for your decisions. A helpful analogy: LUCIA is like GPS navigation — she guides you, but you remain the driver. You don’t drive off a cliff just because the map says the road continues, and you don’t enter a path too narrow for cars only because it looks shorter.</p>
           </section>
 
           <section>
