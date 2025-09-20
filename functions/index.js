@@ -8,7 +8,7 @@ const REGION = "europe-west3";
 const MAIL_COLLECTION = "mail";
 
 const BRAND = {
-  from: "hello@luciadecode.com>",
+  from: "Lucía <hello@luciadecode.com>",
   replyTo: "lucia.decode@proton.me",
   appName: "Lucía Decode",
   continueUrl: process.env.APP_CONTINUE_URL || "https://app.luciadecode.com",
