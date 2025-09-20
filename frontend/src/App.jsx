@@ -7,19 +7,22 @@ import "./styles/typing.css";
 import AppShell from './components/AppShell';
 import ChatPage from './pages/ChatPage';
 import { auth, db } from './firebase';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import FiscalGate from './components/FiscalGate';
+import Pricing from './pages/Pricing';
 
 export default function App() {
   const [needsFiscal, setNeedsFiscal] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+
+  // lightweight page switch for overlay pages (e.g., ?page=pricing)
+  const [page, setPage] = useState(() => new URLSearchParams(window.location.search).get('page'));
 
   useEffect(() => {
     const off = auth.onAuthStateChanged((u) => {
       setAuthReady(true);
       if (!u) { setNeedsFiscal(false); return; }
       const ref = doc(db, "users", u.uid);
-      // Listen if doc exists & has fiscal
       const unsub = onSnapshot(ref, (snap) => {
         if (!snap.exists()) { setNeedsFiscal(true); return; }
         const d = snap.data() || {};
@@ -30,12 +33,45 @@ export default function App() {
     return () => off();
   }, []);
 
+  useEffect(() => {
+    function handleNavigate(ev) {
+      const p = ev?.detail?.page ?? new URLSearchParams(window.location.search).get('page');
+      setPage(p || null);
+    }
+    function handlePop() {
+      const p = new URLSearchParams(window.location.search).get('page');
+      setPage(p || null);
+    }
+    window.addEventListener('lucia:navigate-page', handleNavigate);
+    window.addEventListener('popstate', handlePop);
+    return () => {
+      window.removeEventListener('lucia:navigate-page', handleNavigate);
+      window.removeEventListener('popstate', handlePop);
+    };
+  }, []);
+
+  function closeOverlay() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('page');
+    window.history.pushState({}, '', url);
+    setPage(null);
+  }
+
   return (
     <AppShell>
       {authReady && auth.currentUser && needsFiscal ? (
         <FiscalGate onDone={() => setNeedsFiscal(false)} />
       ) : (
-        <ChatPage />
+        <>
+          <ChatPage />
+
+          {/* Overlay pages (collapsing footer region) */}
+          {page === 'pricing' && (
+            <div className="overlay-root">
+              <Pricing onClose={closeOverlay} />
+            </div>
+          )}
+        </>
       )}
     </AppShell>
   );

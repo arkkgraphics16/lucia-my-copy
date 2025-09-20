@@ -173,7 +173,7 @@ export default function Sidebar({ open, onClose }) {
     setNewFolderFor(null)
   }
 
-  // Navigate to Legal pages (emit event + URL param)
+  // Navigate to footer pages (Terms / Privacy / Pricing)
   function navigateToPage(page) {
     setMenuOpen(false)
     const url = new URL(window.location.href)
@@ -185,7 +185,7 @@ export default function Sidebar({ open, onClose }) {
 
   const openLoginModal = () => window.dispatchEvent(new CustomEvent('lucia:show-login'))
 
-  // Small inline SVGs to avoid Unicode rendering bugs
+  // Small inline SVGs
   const Ellipsis = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="5" cy="12" r="2" fill="currentColor" />
@@ -300,6 +300,10 @@ export default function Sidebar({ open, onClose }) {
                   </button>
                   <button className="user-menu-item" onClick={(e) => { e.stopPropagation(); navigateToPage('privacy') }}>
                     Privacy Policy
+                  </button>
+                  {/* New: Pricing next to Terms/Privacy */}
+                  <button className="user-menu-item" onClick={(e) => { e.stopPropagation(); navigateToPage('pricing') }}>
+                    Pricing & Plans
                   </button>
                   <div className="menu-sep"></div>
                   <button
