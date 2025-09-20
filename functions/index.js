@@ -4,8 +4,8 @@ import admin from "firebase-admin";
 
 admin.initializeApp();
 
-const REGION = "europe-west3";
-const MAIL_COLLECTION = "mail";
+const REGION = process.env.FUNCTIONS_REGION || "europe-west3";
+const MAIL_COLLECTION = process.env.MAIL_COLLECTION || "mail";
 
 const BRAND = {
   from: "Lucía <hello@luciadecode.com>",
@@ -43,7 +43,7 @@ function renderEmail({ displayName, hasVerificationLink, verifyUrl }) {
       </div>`
     : `
       <div class="card">
-        <p>Your email is already verified. You’re all set 🎯</p>
+        <p>Your email is already verified. You’re all set!</p>
       </div>`;
 
   return `
