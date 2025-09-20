@@ -1,5 +1,8 @@
+// src/pages/LegalPages.jsx
 import React from 'react'
 import '../styles/legal-pages.css'
+
+const LAST_UPDATED = 'September 20, 2025' // Asia/Manila
 
 function BackButton({ onClick }) {
   return (
@@ -12,6 +15,7 @@ function BackButton({ onClick }) {
   )
 }
 
+// -------------------- TERMS OF SERVICE --------------------
 function TermsOfService({ onBack }) {
   return (
     <div className="legal-page">
@@ -19,81 +23,103 @@ function TermsOfService({ onBack }) {
         <div className="legal-header">
           <BackButton onClick={onBack} />
           <h1>Terms of Service</h1>
-          <p className="legal-updated">Last updated: [DATE]</p>
+          <p className="legal-updated">Last updated: {LAST_UPDATED}</p>
         </div>
 
         <div className="legal-content">
           <section>
-            <h2>1. Acceptance of Terms</h2>
-            <p>By accessing and using L.U.C.I.A. ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
+            <h2>1. The Service</h2>
+            <p>
+              LUCIA is an AI-powered assistant that provides context and perspective to users’ situations through what we call
+              <strong> Digital Intuition</strong>. LUCIA infers meaning from minimal details, may sometimes generate responses that feel highly
+              accurate, and at other times may introduce noise or lose coherence. LUCIA also includes a random, statistical component in her reasoning.
+              The underlying AI never gives the same answer twice, and this variability is not under our control. LUCIA’s role is to highlight blind
+              spots and create perspective. She does not provide medical, legal, or financial advice. You should not rely on her outputs as absolute truth,
+              and you remain responsible for your decisions. A helpful analogy: LUCIA is like GPS navigation — she guides you, but you remain the driver.
+              You don’t drive off a cliff just because the map says the road continues, and you don’t enter a path too narrow for cars only because it looks shorter.
+            </p>
           </section>
 
           <section>
-            <h2>2. Description of Service</h2>
-            <p>LUCIA is an AI-powered assistant that provides context and perspective to users’ situations through what we call Digital Intuition. LUCIA infers meaning from minimal details, may sometimes generate responses that feel highly accurate, and at other times may introduce noise or lose coherence. LUCIA also includes a random, statistical component in her reasoning. The underlying AI never gives the same answer twice, and this variability is not under our control. LUCIA’s role is to highlight blind spots and create perspective. She does not provide medical, legal, or financial advice. You should not rely on her outputs as absolute truth, and you remain responsible for your decisions. A helpful analogy: LUCIA is like GPS navigation — she guides you, but you remain the driver. You don’t drive off a cliff just because the map says the road continues, and you don’t enter a path too narrow for cars only because it looks shorter.</p>
+            <h2>2. Free Tier and Plans</h2>
+            <h3>2A. Fair Use for the Total plan</h3>
+            <p>
+              To protect service quality and sustainability, the <strong>Total</strong> plan is subject to fair-use limits. Abnormal or disproportionate usage
+              that materially exceeds typical patterns for an individual user (for example, automated message flooding, unusually high request rates, or
+              consumption that significantly degrades the experience for others) may be temporarily throttled. Where reasonable, we will notify you and may
+              suggest a plan change. If usage continues to exceed fair-use thresholds after notice, we may apply additional charges that we disclose to you
+              in advance, or suspend access to restore normal service levels. These measures also help us comply with our AI provider’s rate-limits and service policies.
+            </p>
+            <p>
+              LUCIA offers a free tier that includes 10 messages per user, with 2 additional courtesy messages so you don’t lose your thread. We may adjust
+              these limits or introduce subscription plans in the future.
+            </p>
           </section>
 
           <section>
-            <h2>3. User Responsibilities</h2>
-            <p>You are responsible for:</p>
-            <ul>
-              <li>Providing accurate information when using the service</li>
-              <li>Using the service in compliance with all applicable laws</li>
-              <li>Not sharing harmful, illegal, or inappropriate content</li>
-              <li>Understanding that AI advice should not replace professional counsel</li>
-            </ul>
+            <h2>3. Acceptable Use</h2>
+            <p>
+              Your use of LUCIA must also comply with our AI provider’s usage policies and service terms. If our provider restricts or suspends access due to
+              policy or rate-limit violations, we may need to limit, throttle, or suspend your access accordingly. You agree not to use LUCIA to engage in
+              illegal activities, transmit harmful or abusive content, or attempt to interfere with the system’s operation. We reserve the right to suspend or
+              terminate accounts that violate these terms.
+            </p>
           </section>
 
           <section>
-            <h2>4. Service Limitations</h2>
-            <p>L.U.C.I.A. provides strategic insights and context, not therapy or professional advice. Users are responsible for their own decisions and actions. The service should not be considered a substitute for professional consultation in legal, medical, financial, or psychological matters.</p>
+            <h2>4. Availability</h2>
+            <p>
+              We aim to keep LUCIA available and functioning, but we do not guarantee uninterrupted service. Downtime, updates, or technical issues may occur.
+            </p>
           </section>
 
           <section>
-            <h2>5. Privacy and Data</h2>
-            <p>Your privacy is important to us. Please review our Privacy Policy to understand how we collect, use, and protect your information.</p>
+            <h2>5. Disclaimers</h2>
+            <p>
+              LUCIA is provided “as is.” While we strive for accuracy, outputs may be incomplete, inaccurate, or inconsistent. We disclaim all warranties to the
+              maximum extent permitted by law. LUCIA does not provide medical, legal, or financial advice. Any outputs are for context and perspective only.
+              All decisions remain the sole responsibility of the user. <strong>Outputs are provided for context and perspective only, and must not be relied upon
+              as a substitute for professional advice of any kind.</strong>
+            </p>
           </section>
 
           <section>
-            <h2>6. Account Terms</h2>
-            <p>You are responsible for maintaining the security of your account and password. We cannot and will not be liable for any loss or damage from your failure to comply with this security obligation.</p>
+            <h2>6. Limitation of Liability</h2>
+            <p>
+              To the fullest extent permitted by law, LUCIA and its operators shall not be liable for any damages arising from use of the service, including
+              lost profits, data loss, or other indirect, incidental, or consequential damages.
+            </p>
           </section>
 
           <section>
-            <h2>7. Prohibited Uses</h2>
-            <p>You may not use the service to:</p>
-            <ul>
-              <li>Violate any laws or regulations</li>
-              <li>Harm, threaten, or harass others</li>
-              <li>Generate spam or unsolicited messages</li>
-              <li>Attempt to gain unauthorized access to systems</li>
-              <li>Share malicious code or content</li>
-            </ul>
+            <h2>7. Termination</h2>
+            <p>
+              We may suspend or terminate your access to LUCIA at any time if you violate these Terms. You may also request account termination and deletion
+              of your data at any time by contacting <a href="mailto:lucia.decode@proton.me">lucia.decode@proton.me</a>.
+            </p>
           </section>
 
           <section>
-            <h2>8. Service Availability</h2>
-            <p>We strive to provide reliable service but cannot guarantee 100% uptime. The service may be temporarily unavailable due to maintenance, updates, or technical issues.</p>
+            <h2>8. Governing Law</h2>
+            <p>
+              These Terms shall be governed by and construed in accordance with the laws of Spain and the European Union.
+            </p>
           </section>
 
           <section>
-            <h2>9. Changes to Terms</h2>
-            <p>We reserve the right to modify these terms at any time. Users will be notified of significant changes. Continued use of the service after changes constitutes acceptance of the new terms.</p>
+            <h2>9. Contact Information</h2>
+            <p>
+              If you have questions about these Terms, please contact us at <a href="mailto:lucia.decode@proton.me">lucia.decode@proton.me</a>.
+            </p>
           </section>
 
           <section>
-            <h2>10. Termination</h2>
-            <p>We may terminate or suspend your account at our sole discretion, without prior notice, for conduct that we believe violates these Terms of Service or is harmful to other users or the service.</p>
-          </section>
-
-          <section>
-            <h2>11. Disclaimer</h2>
-            <p>The service is provided "as is" without warranty of any kind. We disclaim all warranties, whether express or implied, including warranties of merchantability, fitness for a particular purpose, and non-infringement.</p>
-          </section>
-
-          <section>
-            <h2>12. Contact Information</h2>
-            <p>If you have questions about these Terms of Service, please contact us at [CONTACT EMAIL].</p>
+            <h2>10. Fiscal Residence</h2>
+            <p>
+              Users are responsible for providing accurate information about their country of fiscal residence. Access to Lucía may be restricted in certain
+              countries. If a user provides false or misleading information in order to access the service, they assume full responsibility, and Lucía and its
+              operators are not liable for any consequences.
+            </p>
           </section>
         </div>
       </div>
@@ -101,6 +127,7 @@ function TermsOfService({ onBack }) {
   )
 }
 
+// -------------------- PRIVACY POLICY --------------------
 function PrivacyPolicy({ onBack }) {
   return (
     <div className="legal-page">
@@ -108,66 +135,71 @@ function PrivacyPolicy({ onBack }) {
         <div className="legal-header">
           <BackButton onClick={onBack} />
           <h1>Privacy Policy</h1>
-          <p className="legal-updated">Last updated: [DATE]</p>
+          <p className="legal-updated">Last updated: {LAST_UPDATED}</p>
         </div>
 
         <div className="legal-content">
           <section>
-            <h2>1. Information We Collect</h2>
-            <h3>Account Information</h3>
-            <p>When you create an account, we collect:</p>
-            <ul>
-              <li>Email address</li>
-              <li>Display name (if provided)</li>
-              <li>Account preferences</li>
-            </ul>
-            
-            <h3>Usage Information</h3>
-            <p>We collect information about how you use our service:</p>
-            <ul>
-              <li>Messages and conversations with L.U.C.I.A.</li>
-              <li>Usage patterns and feature interactions</li>
-              <li>Technical information (device type, browser, IP address)</li>
-            </ul>
+            <h2>1. Your Account</h2>
+            <p>
+              To use LUCIA, you must register for an account using either Google Sign-In, email and password, or email link. You are responsible for maintaining
+              the confidentiality of your login credentials and for all activities that occur under your account. LUCIA is not liable for unauthorized use of your
+              account. You must ensure your email is valid and accessible, as deletion requests can only be processed if sent from the registered email.
+            </p>
           </section>
 
           <section>
-            <h2>2. How We Use Your Information</h2>
-            <p>We use your information to:</p>
+            <h2>2. Third-Party Services</h2>
+            <p>
+              LUCIA integrates with third-party providers, including OpenAI and Firebase. We are not responsible for the availability, security, or data practices
+              of third-party services. This should be read together with Section 4 (Content and Privacy).
+            </p>
+          </section>
+
+          <section>
+            <h2>3. Signup Data</h2>
             <ul>
-              <li>Provide and improve the L.U.C.I.A. service</li>
-              <li>Maintain your account and preferences</li>
-              <li>Respond to your inquiries and support requests</li>
-              <li>Send important service updates</li>
-              <li>Analyze usage patterns to improve our service</li>
+              <li><strong>Email + Fiscal Residence</strong> = mandatory at signup.</li>
+              <li><strong>Full Name + Physical Address</strong> = fields must exist but remain optional at signup.</li>
+              <li>
+                When a user requests a formal invoice, then the system must force Full Name + Address before issuing it.
+              </li>
             </ul>
           </section>
 
           <section>
-            <h2>3. Information Sharing</h2>
-            <p>We do not sell, trade, or otherwise transfer your personal information to third parties, except:</p>
-            <ul>
-              <li>With your explicit consent</li>
-              <li>To comply with legal obligations</li>
-              <li>To protect our rights and safety</li>
-              <li>With service providers who assist in our operations (under strict confidentiality agreements)</li>
-            </ul>
+            <h2>4. Content and Privacy</h2>
+            <h3>Fair-Use Enforcement Metrics</h3>
+            <p>
+              To enforce fair-use for the Total plan and protect availability, we process limited usage metadata (for example, message counts, token totals,
+              request rate, and plan tier). This does not involve reading your message content, which remains end-to-end encrypted as stated below.
+            </p>
+            <p>
+              Your messages are encrypted before leaving your device and stored in Firebase Firestore. Administrators cannot read your threads, prompts, past
+              conversations, or see deleted chats. While we guarantee privacy on our side, we do not control how OpenAI may process text to generate responses.
+              You have the right to request deletion of your email and account data at any time by contacting
+              {' '}<a href="mailto:lucia.decode@proton.me">lucia.decode@proton.me</a>.
+            </p>
           </section>
 
           <section>
-            <h2>4. Data Security</h2>
-            <p>We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.</p>
-            <p>Your conversations are encrypted in transit and at rest. We use industry-standard security practices to protect your data.</p>
+            <h2>5. Data Security</h2>
+            <p>
+              We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration,
+              disclosure, or destruction. Your conversations are encrypted in transit and at rest. We use industry-standard security practices to protect your data.
+            </p>
           </section>
 
           <section>
-            <h2>5. Data Retention</h2>
-            <p>We retain your personal information for as long as necessary to provide our services and comply with legal obligations. You can delete your conversations and account at any time through your account settings.</p>
+            <h2>6. Data Retention</h2>
+            <p>
+              We retain your personal information for as long as necessary to provide our services and comply with legal obligations. You can delete your
+              conversations and account at any time through your account settings.
+            </p>
           </section>
 
           <section>
-            <h2>6. Your Rights</h2>
-            <p>You have the right to:</p>
+            <h2>7. Your Rights</h2>
             <ul>
               <li>Access your personal information</li>
               <li>Correct inaccurate information</li>
@@ -178,7 +210,7 @@ function PrivacyPolicy({ onBack }) {
           </section>
 
           <section>
-            <h2>7. Cookies and Tracking</h2>
+            <h2>8. Cookies and Tracking</h2>
             <p>We use cookies and similar technologies to:</p>
             <ul>
               <li>Maintain your login session</li>
@@ -189,28 +221,35 @@ function PrivacyPolicy({ onBack }) {
           </section>
 
           <section>
-            <h2>8. Third-Party Services</h2>
-            <p>Our service may integrate with third-party providers (such as authentication services). These providers have their own privacy policies, and we encourage you to review them.</p>
-          </section>
-
-          <section>
             <h2>9. International Users</h2>
-            <p>If you are accessing our service from outside the United States, please be aware that your information may be transferred to, stored, and processed in the United States where our servers are located.</p>
+            <p>
+              If you are accessing our service from outside the United States, please be aware that your information may be transferred to, stored, and processed
+              in the United States where our servers are located.
+            </p>
           </section>
 
           <section>
-            <h2>10. Children's Privacy</h2>
-            <p>Our service is not directed to children under 13. We do not knowingly collect personal information from children under 13. If we become aware that we have collected such information, we will take steps to delete it promptly.</p>
+            <h2>10. Children’s Privacy</h2>
+            <p>
+              Our service is not directed to children under 13. We do not knowingly collect personal information from children under 13. If we become aware that
+              we have collected such information, we will take steps to delete it promptly.
+            </p>
           </section>
 
           <section>
-            <h2>11. Changes to Privacy Policy</h2>
-            <p>We may update this Privacy Policy from time to time. We will notify users of significant changes by email or through our service. Your continued use of the service after changes constitutes acceptance of the updated policy.</p>
+            <h2>11. Changes to this Policy</h2>
+            <p>
+              We may update this Privacy Policy from time to time. We will notify users of significant changes by email or through our service. Your continued use
+              of the service after changes constitutes acceptance of the updated policy.
+            </p>
           </section>
 
           <section>
             <h2>12. Contact Us</h2>
-            <p>If you have questions about this Privacy Policy or our data practices, please contact us at [CONTACT EMAIL].</p>
+            <p>
+              If you have questions about this Privacy Policy or our data practices, please contact us at
+              {' '}<a href="mailto:lucia.decode@proton.me">lucia.decode@proton.me</a>.
+            </p>
           </section>
         </div>
       </div>
@@ -219,13 +258,7 @@ function PrivacyPolicy({ onBack }) {
 }
 
 export default function LegalPages({ page, onBack }) {
-  if (page === 'terms') {
-    return <TermsOfService onBack={onBack} />
-  }
-  
-  if (page === 'privacy') {
-    return <PrivacyPolicy onBack={onBack} />
-  }
-  
+  if (page === 'terms') return <TermsOfService onBack={onBack} />
+  if (page === 'privacy') return <PrivacyPolicy onBack={onBack} />
   return null
 }
