@@ -1,9 +1,12 @@
-// ESM + firebase-functions v1 API (works with 4.x)
-import functions from "firebase-functions"; // NOTE: default import (CJS interop)
-import admin from "firebase-admin";
+// index.js — Cloud Functions (ESM) for onboarding email (FINAL doc content)
+// Queues an email in Firestore collection watched by the SMTP extension.
+
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 
 admin.initializeApp();
 
+// ----- Config -----
 const REGION = process.env.FUNCTIONS_REGION || "europe-west3";
 const MAIL_COLLECTION = process.env.MAIL_COLLECTION || "mail";
 
@@ -16,6 +19,7 @@ const BRAND = {
   supportEmail: "lucia.decode@proton.me",
 };
 
+// ----- Renderers (HTML + plain text) -----
 function renderEmail({ displayName, hasVerificationLink, verifyUrl }) {
   const greeting = displayName ? `Hi ${displayName},` : "Hi,";
 
@@ -43,7 +47,7 @@ function renderEmail({ displayName, hasVerificationLink, verifyUrl }) {
       </div>`
     : `
       <div class="card">
-        <p>Your email is already verified. You’re all set!</p>
+        <p>Your email is already verified. You’re all set 🎯</p>
       </div>`;
 
   return `
@@ -112,41 +116,94 @@ function renderText({ hasVerificationLink, verifyUrl }) {
   return lines.join("\n");
 }
 
+// ----- Auth Trigger: on user create -----
 export const sendWelcomeOnSignup = functions
   .region(REGION)
   .auth.user()
   .onCreate(async (user) => {
-    const { uid, email, displayName, emailVerified } = user || {};
-    if (!email) {
-      functions.logger.warn(`User ${uid} has no email; skipping welcome email.`);
-      return;
+    try {
+      const { uid, email, displayName, emailVerified } = user || {};
+      if (!email) {
+        functions.logger.warn(`onCreate skip: uid=${uid} has no email`);
+        return;
+      }
+
+      // Generate verification link if needed
+      let verifyUrl = null;
+      if (!emailVerified) {
+        const actionCodeSettings = { url: BRAND.continueUrl, handleCodeInApp: false };
+        verifyUrl = await admin.auth().generateEmailVerificationLink(email, actionCodeSettings);
+      }
+
+      // Fixed subject per FINAL doc
+      const subject = "Welcome to Lucía – Your Conversations Are Private";
+
+      const html = renderEmail({ displayName, hasVerificationLink: !!verifyUrl, verifyUrl });
+      const text = renderText({ hasVerificationLink: !!verifyUrl, verifyUrl });
+
+      const ref = await admin.firestore().collection(MAIL_COLLECTION).add({
+        to: [email],
+        from: BRAND.from,
+        replyTo: BRAND.replyTo,
+        message: { subject, text, html },
+        meta: {
+          uid,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          emailVerifiedAtSignup: !!emailVerified,
+          source: "sendWelcomeOnSignup",
+        },
+      });
+
+      functions.logger.info(
+        `Queued welcome email doc ${ref.id} in /${MAIL_COLLECTION} for ${email} (uid=${uid})`
+      );
+    } catch (err) {
+      functions.logger.error("Failed to queue welcome email", { err: String(err) });
+      throw err;
     }
+  });
 
-    let verifyUrl = null;
-    if (!emailVerified) {
-      const actionCodeSettings = { url: BRAND.continueUrl, handleCodeInApp: false };
-      verifyUrl = await admin.auth().generateEmailVerificationLink(email, actionCodeSettings);
-    }
+/*
+// Optional: Manual tester endpoint for backfill/diagnostics.
+// Enable by uncommenting and setting ADMIN_HTTP_KEY env var.
+export const _debugQueueWelcome = functions.region(REGION).https.onRequest(async (req, res) => {
+  try {
+    const key = req.get("x-key") || req.query.key;
+    if (key !== process.env.ADMIN_HTTP_KEY) return res.status(401).send("unauthorized");
 
-    const hasVerificationLink = !!verifyUrl;
+    const email = (req.query.email || "").toString().trim();
+    if (!email) return res.status(400).send("missing ?email");
 
-    // Fixed subject per spec/doc
-    const subject = "Welcome to Lucía – Your Conversations Are Private";
+    let userRecord = null;
+    try { userRecord = await admin.auth().getUserByEmail(email); } catch {}
 
-    const html = renderEmail({ displayName, hasVerificationLink, verifyUrl });
-    const text = renderText({ hasVerificationLink, verifyUrl });
+    const verifyUrl = userRecord && !userRecord.emailVerified
+      ? await admin.auth().generateEmailVerificationLink(email, { url: BRAND.continueUrl })
+      : null;
 
-    await admin.firestore().collection(MAIL_COLLECTION).add({
+    const html = renderEmail({
+      displayName: userRecord?.displayName || null,
+      hasVerificationLink: !!verifyUrl,
+      verifyUrl
+    });
+    const text = renderText({ hasVerificationLink: !!verifyUrl, verifyUrl });
+
+    const ref = await admin.firestore().collection(MAIL_COLLECTION).add({
       to: [email],
       from: BRAND.from,
       replyTo: BRAND.replyTo,
-      message: { subject, text, html },
+      message: { subject: "Welcome to Lucía — manual test", text, html },
       meta: {
-        uid,
+        uid: userRecord?.uid || null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        emailVerifiedAtSignup: !!emailVerified,
+        emailVerifiedAtSignup: !!userRecord?.emailVerified,
+        source: "_debugQueueWelcome",
       },
     });
 
-    functions.logger.info(`Queued welcome email for ${email} (uid=${uid}).`);
-  });
+    return res.status(200).send(`queued ${ref.id} in /${MAIL_COLLECTION}`);
+  } catch (e) {
+    return res.status(500).send(String(e));
+  }
+});
+*/
