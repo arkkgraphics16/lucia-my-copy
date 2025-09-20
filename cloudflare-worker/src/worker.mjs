@@ -29,23 +29,45 @@ async function handleIp(request) {
   return json({ ip });
 }
 
-// OPTIONAL: a minimal /chat stub so the worker stays compatible
-async function handleChat(request, origin) {
+// FIXED: Real chat handler with DeepSeek integration
+async function handleChat(request, origin, env) {
   try {
-    const body = await request.json().catch(() => ({}));
-    // Echo-style stub — replace with your real logic if you already have one
-    return json(
-      {
-        ok: true,
-        message:
-          "Worker is alive. Replace handleChat() with your real /chat logic if needed.",
-        received: body || null,
+    const body = await request.json();
+    const prompt = (body?.prompt ?? "").toString();
+    const history = Array.isArray(body?.history) ? body.history.slice(-20) : [];
+
+    if (!prompt.trim()) return json({ error: "prompt required" }, origin, 400);
+
+    // Dummy echo mode
+    if (env.DUMMY_MODE === "true") {
+      return json({ reply: `Echo: ${prompt}` }, origin, 200);
+    }
+
+    // DeepSeek API call
+    const apiBase = env.DEEPSEEK_API_URL || "https://api.deepseek.com/v1/chat/completions";
+    const res = await fetch(apiBase, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${env.DEEPSEEK_API_KEY}`
       },
-      origin,
-      200
-    );
-  } catch (err) {
-    return json({ ok: false, error: String(err) }, origin, 500);
+      body: JSON.stringify({
+        model: env.DEEPSEEK_MODEL || "deepseek-chat",
+        messages: [...history, { role: "user", content: prompt }],
+        temperature: 0.7
+      })
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      return json({ error: "upstream_error", status: res.status, body: text }, origin, 502);
+    }
+
+    const data = await res.json();
+    const reply = data?.choices?.[0]?.message?.content ?? "";
+    return json({ reply }, origin, 200);
+  } catch (e) {
+    return json({ error: String(e?.message || e) }, origin, 500);
   }
 }
 
@@ -59,7 +81,7 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    // --- New: client IP endpoint ---
+    // --- Client IP endpoint ---
     if (request.method === "GET" && url.pathname === "/ip") {
       return handleIp(request);
     }
@@ -70,6 +92,7 @@ export default {
         {
           ok: true,
           service: "lucia-secure worker",
+          mode: env.DUMMY_MODE === "true" ? "DUMMY" : "DEEPSEEK",
           endpoints: ["GET /ip", "POST /chat", "GET /health"],
         },
         origin,
@@ -77,9 +100,9 @@ export default {
       );
     }
 
-    // Chat (optional stub)
+    // Chat with real DeepSeek integration
     if (request.method === "POST" && url.pathname === "/chat") {
-      return handleChat(request, origin);
+      return handleChat(request, origin, env);
     }
 
     return new Response("Not found", { status: 404, headers: corsHeaders(origin) });

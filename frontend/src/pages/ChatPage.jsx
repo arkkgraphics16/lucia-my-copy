@@ -277,53 +277,62 @@ export default function ChatPage() {
   }
   function handleCourtesyDecline() { setShowCourtesy(false); setCapHit(true) }
 
-  async function send() {
-    const content = text.trim()
-    if (!content) return
-    setBusy(true)
-    setText("")
-    try {
-      const uid = await ensureLogin()
-      let cid = conversationId
-      if (!cid) {
-        const title = content.slice(0, 48)
-        cid = await createConversation(uid, title, "")
-        const url = new URL(window.location.href)
-        url.searchParams.set("c", cid)
-        window.history.replaceState({}, "", url)
-        setConversationId(cid)
-      } else if (msgs.length === 0) {
-        await setConversationTitle(uid, cid, content.slice(0, 48))
-      }
-      if (!quota.isPro) {
-        if (quota.used === 10 && !quota.courtesy) { setShowCourtesy(true); setBusy(false); return }
-        const hardTotal = quota.courtesy ? 12 : 10
-        if (quota.used >= hardTotal) { setCapHit(true); setBusy(false); return }
-      }
-      await addMessage(uid, cid, "user", content)
-      const workerMessages = msgs.map(m => ({ role: m.role, content: m.content }))
-      workerMessages.push({ role: "user", content })
-      const res = await fetch(WORKER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system, messages: workerMessages })
+async function send() {
+  const content = text.trim()
+  if (!content) return
+  setBusy(true)
+  setText("")
+  try {
+    const uid = await ensureLogin()
+    let cid = conversationId
+    if (!cid) {
+      const title = content.slice(0, 48)
+      cid = await createConversation(uid, title, "")
+      const url = new URL(window.location.href)
+      url.searchParams.set("c", cid)
+      window.history.replaceState({}, "", url)
+      setConversationId(cid)
+    } else if (msgs.length === 0) {
+      await setConversationTitle(uid, cid, content.slice(0, 48))
+    }
+    if (!quota.isPro) {
+      if (quota.used === 10 && !quota.courtesy) { setShowCourtesy(true); setBusy(false); return }
+      const hardTotal = quota.courtesy ? 12 : 10
+      if (quota.used >= hardTotal) { setCapHit(true); setBusy(false); return }
+    }
+    await addMessage(uid, cid, "user", content)
+    
+    // FIXED: Convert messages to history format and use correct request format
+    const history = msgs.map(m => ({ role: m.role, content: m.content }))
+    
+    const res = await fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        prompt: content,      // ✅ Current user message
+        history: history      // ✅ Previous conversation history
       })
-      const bodyText = await res.text()
-      let data = {}
-      try { data = JSON.parse(bodyText) } catch {}
-      if (!res.ok || data?.ok !== true) {
-        await addMessage(uid, cid, "assistant", `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
-        await bumpUpdatedAt(uid, cid)
-        setBusy(false)
-        return
-      }
-      await addMessage(uid, cid, "assistant", data.reply || "(no reply)")
+    })
+    
+    const bodyText = await res.text()
+    let data = {}
+    try { data = JSON.parse(bodyText) } catch {}
+    
+    // FIXED: Check for reply field instead of ok field
+    if (!res.ok || !data.reply) {
+      await addMessage(uid, cid, "assistant", `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
       await bumpUpdatedAt(uid, cid)
-      if (!quota.isPro) await safeIncrementUsage(uid)
-    } catch (err) {
-      if (String(err?.message || "").toLowerCase() !== "login required") console.error(err)
-    } finally { setBusy(false) }
-  }
+      setBusy(false)
+      return
+    }
+    
+    await addMessage(uid, cid, "assistant", data.reply || "(no reply)")
+    await bumpUpdatedAt(uid, cid)
+    if (!quota.isPro) await safeIncrementUsage(uid)
+  } catch (err) {
+    if (String(err?.message || "").toLowerCase() !== "login required") console.error(err)
+  } finally { setBusy(false) }
+}
 
   function cancel() { setBusy(false) }
 
