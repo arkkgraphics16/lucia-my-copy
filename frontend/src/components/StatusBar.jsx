@@ -1,7 +1,8 @@
 // lucia-secure/frontend/src/components/StatusBar.jsx
 import React, { useEffect, useState } from 'react'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { useAuthToken } from '../hooks/useAuthToken'
-import { getUserData } from '../firebase'
+import { db } from '../firebase'
 import "../styles/usage-indicator.css"
 
 export default function StatusBar(){
@@ -19,18 +20,25 @@ export default function StatusBar(){
   }, [BASE])
 
   useEffect(() => {
-    if (!user?.uid) return
-    getUserData(user.uid).then(data => {
-      if (!data) return
+    if (!user?.uid) { setRemaining(null); return }
+    const ref = doc(db, 'users', user.uid)
+    const unsubscribe = onSnapshot(ref, (snap) => {
+      if (!snap.exists()) return
+      const data = snap.data()
       if (data.tier === 'pro') {
         setRemaining(null)
-      } else {
-        const used = data.exchanges_used || 0
-        const courtesy = data.courtesy_used || false
-        const max = courtesy ? 12 : 10
-        setRemaining(Math.max(0, max - used))
+        return
       }
+      const usedRaw = data.exchanges_used
+      const courtesyRaw = data.courtesy_used
+      const used = typeof usedRaw === 'number' ? usedRaw : Number(usedRaw || 0)
+      const courtesy = typeof courtesyRaw === 'boolean'
+        ? courtesyRaw
+        : (typeof courtesyRaw === 'string' ? courtesyRaw.toLowerCase() === 'true' : !!courtesyRaw)
+      const max = courtesy ? 12 : 10
+      setRemaining(Math.max(0, max - (Number.isFinite(used) ? used : 0)))
     })
+    return () => unsubscribe()
   }, [user?.uid])
 
   let state = "usage-indicator--bad"
