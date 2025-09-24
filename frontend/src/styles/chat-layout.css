@@ -9,12 +9,14 @@
 /* ================== BASE STYLES ================== */
 
 .thread {
+  width: min(100%, var(--content-w));
   max-width: var(--content-w);
   margin-left: auto;
   margin-right: auto;
 }
 
 .limit-banner {
+  width: min(100%, var(--content-w));
   max-width: var(--content-w);
   margin-left: auto;
   margin-right: auto;
@@ -22,6 +24,7 @@
 
 /* Bottom usage indicator chip */
 .usage-indicator.bottom-chip {
+  width: min(100%, var(--content-w));
   max-width: var(--content-w);
   margin: 8px auto 0 auto;
 }
@@ -108,6 +111,7 @@
   
   .thread,
   .limit-banner {
+    width: min(100%, var(--content-w));
     max-width: var(--content-w);
     padding-left: 20px;
     padding-right: 20px;
