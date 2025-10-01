@@ -6,7 +6,7 @@ Endpoints:
 - POST /chat or /api/chat     -> { prompt, history? } -> { reply }
 
 Env (Dashboard -> Variables/Secrets):
-- DUMMY_MODE: "true" (echo) or "false" (DeepSeek)
-- DEEPSEEK_API_URL: https://api.deepseek.com/v1/chat/completions
-- DEEPSEEK_MODEL: deepseek-chat
-- DEEPSEEK_API_KEY: (Secret)
+- DUMMY_MODE: "true" (echo) or "false" (OpenAI)
+- OPENAI_API_URL: https://api.openai.com/v1/chat/completions
+- OPENAI_MODEL: gpt-4o-mini
+- OPENAI_API_KEY: (Secret)

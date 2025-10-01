@@ -17,7 +17,7 @@ export default {
       const info = {
         ok: true,
         service: "lucia-secure worker",
-        mode: env.DUMMY_MODE === "true" ? "DUMMY" : "DEEPSEEK",
+        mode: env.DUMMY_MODE === "true" ? "DUMMY" : "OPENAI",
         endpoint: "POST /chat or /api/chat { prompt, history? }"
       };
       return json(info, 200);
@@ -36,16 +36,16 @@ export default {
           return json({ reply: `Echo: ${prompt}` }, 200);
         }
 
-        // DeepSeek
-        const apiBase = env.DEEPSEEK_API_URL || "https://api.deepseek.com/v1/chat/completions";
+        // OpenAI
+        const apiBase = env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions";
         const res = await fetch(apiBase, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${env.DEEPSEEK_API_KEY}`
+            "Authorization": `Bearer ${env.OPENAI_API_KEY}`
           },
           body: JSON.stringify({
-            model: env.DEEPSEEK_MODEL || "deepseek-chat",
+            model: env.OPENAI_MODEL || "gpt-4o-mini",
             messages: [...history, { role: "user", content: prompt }],
             temperature: 0.7
           })

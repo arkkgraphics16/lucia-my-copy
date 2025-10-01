@@ -29,7 +29,7 @@ async function handleIp(request) {
   return json({ ip });
 }
 
-// FIXED: Real chat handler with DeepSeek integration
+// FIXED: Real chat handler with OpenAI integration
 async function handleChat(request, origin, env) {
   try {
     const body = await request.json();
@@ -43,16 +43,16 @@ async function handleChat(request, origin, env) {
       return json({ reply: `Echo: ${prompt}` }, origin, 200);
     }
 
-    // DeepSeek API call
-    const apiBase = env.DEEPSEEK_API_URL || "https://api.deepseek.com/v1/chat/completions";
+    // OpenAI API call
+    const apiBase = env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions";
     const res = await fetch(apiBase, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${env.DEEPSEEK_API_KEY}`
+        "Authorization": `Bearer ${env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: env.DEEPSEEK_MODEL || "deepseek-chat",
+        model: env.OPENAI_MODEL || "gpt-4o-mini",
         messages: [...history, { role: "user", content: prompt }],
         temperature: 0.7
       })
@@ -92,7 +92,7 @@ export default {
         {
           ok: true,
           service: "lucia-secure worker",
-          mode: env.DUMMY_MODE === "true" ? "DUMMY" : "DEEPSEEK",
+          mode: env.DUMMY_MODE === "true" ? "DUMMY" : "OPENAI",
           endpoints: ["GET /ip", "POST /chat", "GET /health"],
         },
         origin,
@@ -100,7 +100,7 @@ export default {
       );
     }
 
-    // Chat with real DeepSeek integration
+    // Chat with OpenAI integration
     if (request.method === "POST" && url.pathname === "/chat") {
       return handleChat(request, origin, env);
     }
