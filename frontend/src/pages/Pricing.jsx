@@ -3,11 +3,18 @@ import { useAuthToken } from '../hooks/useAuthToken';
 import { createCheckoutSession, stripeEnabled } from '../lib/api';
 import '../styles/pricing.css';
 
+const PLAN_IDS = {
+  BASIC: import.meta.env.VITE_STRIPE_PRICE_BASIC || 'prod_T94vRkqGFkaXWG',
+  MEDIUM: import.meta.env.VITE_STRIPE_PRICE_MEDIUM || 'prod_T94zVM2gXLzNx3',
+  INTENSIVE: import.meta.env.VITE_STRIPE_PRICE_INTENSIVE || 'prod_T950su3vUkpPAc',
+  TOTAL: import.meta.env.VITE_STRIPE_PRICE_TOTAL || 'price_1SCmrg2NCNcgXLO1dIBQ75vR',
+};
+
 const PLANS = [
-  { key: 'BASIC',     name: 'Basic',     priceId: 'price_BASIC_EUR',     price: '€20',   note: '200 messages / mo' },
-  { key: 'MEDIUM',    name: 'Medium',    priceId: 'price_MEDIUM_EUR',    price: '€30',   note: '400 messages / mo' },
-  { key: 'INTENSIVE', name: 'Intensive', priceId: 'price_INTENSIVE_EUR', price: '€50',   note: '2,000 messages / mo' },
-  { key: 'TOTAL',     name: 'Total',     priceId: 'price_TOTAL_EUR',     price: '€90',   note: '6,000+ messages / mo' },
+  { key: 'BASIC', name: 'Basic', priceId: PLAN_IDS.BASIC, price: '€20', note: '200 messages / mo' },
+  { key: 'MEDIUM', name: 'Medium', priceId: PLAN_IDS.MEDIUM, price: '€30', note: '400 messages / mo' },
+  { key: 'INTENSIVE', name: 'Intensive', priceId: PLAN_IDS.INTENSIVE, price: '€50', note: '2,000 messages / mo' },
+  { key: 'TOTAL', name: 'Total', priceId: PLAN_IDS.TOTAL, price: '€90', note: '6,000+ messages / mo' },
 ];
 
 export default function Pricing({ onClose }) {
@@ -23,7 +30,7 @@ export default function Pricing({ onClose }) {
       alert('Owner must plug Stripe keys and API URL to enable checkout.');
       return;
     }
-    const { url } = await createCheckoutSession(priceId, user.uid);
+    const { url } = await createCheckoutSession({ priceId, uid: user.uid, email: user.email || undefined });
     window.location.href = url;
   }
 

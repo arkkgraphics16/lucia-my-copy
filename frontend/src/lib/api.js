@@ -19,7 +19,7 @@ export function stripeEnabled() {
   return Boolean((import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '').trim() && baseUrl());
 }
 
-export async function createCheckoutSession(priceId, uid) {
+export async function createCheckoutSession({ priceId, uid, email }) {
   const url = baseUrl() + '/stripe/create-checkout-session';
   const token = await getIdToken();
   const res = await fetch(url, {
@@ -28,13 +28,13 @@ export async function createCheckoutSession(priceId, uid) {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify({ priceId, uid })
+    body: JSON.stringify({ priceId, uid, email })
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json(); // { url }
 }
 
-export async function createPortalSession(uid) {
+export async function createPortalSession({ uid, email }) {
   const url = baseUrl() + '/stripe/create-portal-session';
   const token = await getIdToken();
   const res = await fetch(url, {
@@ -43,7 +43,7 @@ export async function createPortalSession(uid) {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify({ uid })
+    body: JSON.stringify({ uid, email })
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json(); // { url }
