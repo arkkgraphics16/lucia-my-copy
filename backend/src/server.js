@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 
 const securePrompts = require('./routes/securePrompts');
+const chat = require('./routes/chat');
 const files = require('./routes/files');
 const { router: stripeRouter, webhookHandler } = require('./routes/payments');
 
@@ -17,6 +18,7 @@ app.use(express.json({ limit: '1mb' }));
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 
 app.use('/api/secure-prompts', securePrompts);
+app.use('/api/chat', chat);
 app.use('/api/files', files);
 app.use('/stripe', stripeRouter);
 

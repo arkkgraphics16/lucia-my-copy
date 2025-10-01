@@ -5,6 +5,7 @@ import Composer from "../components/Composer"
 import CourtesyPopup from "../components/CourtesyPopup"
 import { onQuickPrompt } from "../lib/bus"
 import { useAuthToken } from "../hooks/useAuthToken"
+import { apiBaseUrl, getIdToken } from "../lib/api"
 import {
   auth,
   db,
@@ -33,7 +34,7 @@ import "../styles/courtesy-popup.css"
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
 import { doc, onSnapshot, getDoc, runTransaction } from "firebase/firestore"
 
-const WORKER_URL = "https://lucia-secure.arkkgraphics.workers.dev/chat"
+const CHAT_URL = `${apiBaseUrl() || ""}/api/chat`
 const DEFAULT_SYSTEM =
   "L.U.C.I.A. – Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
 
@@ -304,11 +305,15 @@ async function send() {
     
     // FIXED: Convert messages to history format and use correct request format
     const history = msgs.map(m => ({ role: m.role, content: m.content }))
-    
-    const res = await fetch(WORKER_URL, {
+    const token = await getIdToken()
+
+    const res = await fetch(CHAT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
         prompt: content,      // ✅ Current user message
         history: history      // ✅ Previous conversation history
       })

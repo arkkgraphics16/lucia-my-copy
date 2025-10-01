@@ -11,7 +11,12 @@ export async function getIdToken() {
 function baseUrl() {
   const w = (import.meta.env.VITE_WORKER_API_URL || '').trim();
   const f = (import.meta.env.VITE_FUNCTIONS_URL || '').trim();
-  return w || f || ''; // same-origin if both blank
+  const raw = w || f || '';
+  return raw ? raw.replace(/\/+$/, '') : '';
+}
+
+export function apiBaseUrl() {
+  return baseUrl();
 }
 
 export function stripeEnabled() {
