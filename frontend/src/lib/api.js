@@ -15,8 +15,53 @@ function baseUrl() {
   return raw ? raw.replace(/\/+$/, '') : '';
 }
 
+function normalizePath(pathname) {
+  if (!pathname) return '';
+  return pathname.replace(/\/+$/, '');
+}
+
 export function apiBaseUrl() {
   return baseUrl();
+}
+
+export function chatUrl() {
+  const override = (import.meta.env.VITE_CHAT_URL || '').trim();
+  if (override) return override;
+
+  const base = baseUrl();
+  if (!base) return '/api/chat';
+
+  const normalizedBase = base.replace(/\/+$/, '');
+  if (!normalizedBase) return '/api/chat';
+
+  const tryParseAbsolute = () => {
+    try {
+      const url = new URL(normalizedBase);
+      const path = normalizePath(url.pathname);
+
+      if (!path) return `${url.origin}/api/chat`;
+      if (path.endsWith('/api/chat') || path.endsWith('/chat')) {
+        return `${url.origin}${path}`;
+      }
+      if (path.endsWith('/api')) {
+        return `${url.origin}${path}/chat`;
+      }
+      return `${url.origin}${path}/api/chat`;
+    } catch (_err) {
+      return null;
+    }
+  };
+
+  const absolute = tryParseAbsolute();
+  if (absolute) return absolute;
+
+  if (normalizedBase.endsWith('/api/chat') || normalizedBase.endsWith('/chat')) {
+    return normalizedBase;
+  }
+  if (normalizedBase.endsWith('/api')) {
+    return `${normalizedBase}/chat`;
+  }
+  return `${normalizedBase}/api/chat`;
 }
 
 export function stripeEnabled() {

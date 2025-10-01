@@ -5,7 +5,7 @@ import Composer from "../components/Composer"
 import CourtesyPopup from "../components/CourtesyPopup"
 import { onQuickPrompt } from "../lib/bus"
 import { useAuthToken } from "../hooks/useAuthToken"
-import { apiBaseUrl, getIdToken } from "../lib/api"
+import { chatUrl, getIdToken } from "../lib/api"
 import {
   auth,
   db,
@@ -34,7 +34,7 @@ import "../styles/courtesy-popup.css"
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
 import { doc, onSnapshot, getDoc, runTransaction } from "firebase/firestore"
 
-const CHAT_URL = `${apiBaseUrl() || ""}/api/chat`
+const CHAT_URL = chatUrl()
 const DEFAULT_SYSTEM =
   "L.U.C.I.A. – Logical Understanding & Clarification of Interpersonal Agendas. She tells you what they want, what they're hiding, and what will actually work. Her value is context and strategy, not therapy. You are responsible for decisions."
 
