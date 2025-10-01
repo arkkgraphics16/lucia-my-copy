@@ -1,3 +1,5 @@
+// frontend/src/lib/api.js
+
 // Minimal API helper for Stripe endpoints (placeholder-safe).
 // Works even without keys: UI will disable checkout if not connected.
 
@@ -24,9 +26,29 @@ export function apiBaseUrl() {
   return baseUrl();
 }
 
+function ensureChatUrl(base, { preferPlainChat } = {}) {
+  const normalized = (base || '').replace(/\/+$/, '');
+  if (!normalized) {
+    return preferPlainChat ? '/chat' : '/api/chat';
+  }
+
+  if (normalized.endsWith('/api/chat') || normalized.endsWith('/chat')) {
+    return normalized;
+  }
+
+  if (normalized.endsWith('/api')) {
+    return `${normalized}/chat`;
+  }
+
+  return `${normalized}${preferPlainChat ? '/chat' : '/api/chat'}`;
+}
+
 export function chatUrl() {
   const override = (import.meta.env.VITE_CHAT_URL || '').trim();
   if (override) return override;
+
+  const workerBase = (import.meta.env.VITE_WORKER_API_URL || '').trim();
+  const functionsBase = (import.meta.env.VITE_FUNCTIONS_URL || '').trim();
 
   const base = baseUrl();
   if (!base) return '/api/chat';
@@ -34,19 +56,20 @@ export function chatUrl() {
   const normalizedBase = base.replace(/\/+$/, '');
   if (!normalizedBase) return '/api/chat';
 
+  const normalizedWorkerBase = workerBase.replace(/\/+$/, '');
+  const normalizedFunctionsBase = functionsBase.replace(/\/+$/, '');
+  const preferPlainChat = Boolean(
+    normalizedWorkerBase &&
+      normalizedWorkerBase === normalizedBase &&
+      normalizedWorkerBase !== normalizedFunctionsBase
+  );
+
   const tryParseAbsolute = () => {
     try {
       const url = new URL(normalizedBase);
       const path = normalizePath(url.pathname);
-
-      if (!path) return `${url.origin}/api/chat`;
-      if (path.endsWith('/api/chat') || path.endsWith('/chat')) {
-        return `${url.origin}${path}`;
-      }
-      if (path.endsWith('/api')) {
-        return `${url.origin}${path}/chat`;
-      }
-      return `${url.origin}${path}/api/chat`;
+      const root = path ? `${url.origin}${path}` : url.origin;
+      return ensureChatUrl(root, { preferPlainChat });
     } catch (_err) {
       return null;
     }
@@ -55,13 +78,7 @@ export function chatUrl() {
   const absolute = tryParseAbsolute();
   if (absolute) return absolute;
 
-  if (normalizedBase.endsWith('/api/chat') || normalizedBase.endsWith('/chat')) {
-    return normalizedBase;
-  }
-  if (normalizedBase.endsWith('/api')) {
-    return `${normalizedBase}/chat`;
-  }
-  return `${normalizedBase}/api/chat`;
+  return ensureChatUrl(normalizedBase, { preferPlainChat });
 }
 
 export function stripeEnabled() {
