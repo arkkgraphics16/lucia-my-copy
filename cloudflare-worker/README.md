@@ -2,8 +2,8 @@ Lucía Worker
 ============
 
 Endpoints:
-- GET / or /chat  -> health JSON
-- POST /chat      -> { prompt, history? } -> { reply }
+- GET / or /chat or /api/chat -> health JSON
+- POST /chat or /api/chat     -> { prompt, history? } -> { reply }
 
 Env (Dashboard -> Variables/Secrets):
 - DUMMY_MODE: "true" (echo) or "false" (DeepSeek)

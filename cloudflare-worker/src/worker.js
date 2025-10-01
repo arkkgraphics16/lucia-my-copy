@@ -8,21 +8,22 @@ export default {
   async fetch(request, env) {
     const { method } = request;
     const url = new URL(request.url);
+    const pathname = normalizePath(url.pathname);
 
     if (method === "OPTIONS") return new Response(null, { headers: CORS });
 
     // Health/help
-    if (method === "GET" && (url.pathname === "/" || url.pathname === "/chat")) {
+    if (method === "GET" && (pathname === "/" || pathname === "/chat")) {
       const info = {
         ok: true,
         service: "lucia-secure worker",
         mode: env.DUMMY_MODE === "true" ? "DUMMY" : "DEEPSEEK",
-        endpoint: "POST /chat { prompt, history? }"
+        endpoint: "POST /chat or /api/chat { prompt, history? }"
       };
       return json(info, 200);
     }
 
-    if (method === "POST" && url.pathname === "/chat") {
+    if (method === "POST" && pathname === "/chat") {
       try {
         const body = await request.json();
         const prompt = (body?.prompt ?? "").toString();
@@ -72,4 +73,17 @@ function json(obj, status = 200) {
     status,
     headers: { "Content-Type": "application/json", ...CORS }
   });
+}
+
+function normalizePath(pathname) {
+  if (!pathname) return "/";
+  if (pathname !== "/" && pathname.endsWith("/")) {
+    pathname = pathname.slice(0, -1);
+  }
+  if (pathname === "/api") return "/";
+  if (pathname.startsWith("/api/")) {
+    const trimmed = pathname.slice(4);
+    return trimmed ? trimmed : "/";
+  }
+  return pathname;
 }
