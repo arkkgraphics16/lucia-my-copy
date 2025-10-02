@@ -1,5 +1,10 @@
+// server/routes/chat.js
 const router = require('express').Router();
-const { callOpenAI } = require('../lib/openai');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+
+// configure AWS Lambda client (region must match your function)
+const lambda = new LambdaClient({ region: 'eu-west-1' });
+const FUNCTION_NAME = 'lucia-openai-proxy';
 
 function sanitizeHistory(raw) {
   if (!Array.isArray(raw)) return [];
@@ -20,19 +25,36 @@ router.post('/', async (req, res) => {
   }
 
   const history = sanitizeHistory(req.body?.history);
-  const options = {};
-  if (history.length > 0) {
-    options.history = history;
-    options.messages = [...history, { role: 'user', content: prompt }];
-  }
+  const payload = {
+    mode: 'chat',
+    messages: history.length
+      ? [...history, { role: 'user', content: prompt }]
+      : [{ role: 'user', content: prompt }],
+  };
 
   try {
-    const reply = await callOpenAI(prompt, options);
-    return res.json({ reply });
+    const cmd = new InvokeCommand({
+      FunctionName: FUNCTION_NAME,
+      InvocationType: 'RequestResponse',
+      Payload: Buffer.from(JSON.stringify(payload)),
+    });
+
+    const resp = await lambda.send(cmd);
+    const body = resp.Payload
+      ? JSON.parse(new TextDecoder().decode(resp.Payload))
+      : { error: 'empty_lambda_response' };
+
+    // normalize what your frontend expects
+    if (body.reply) {
+      return res.json({ reply: body.reply });
+    } else if (body.error) {
+      return res.status(502).json({ error: body.error });
+    } else {
+      return res.status(502).json({ error: 'unexpected_response', body });
+    }
   } catch (err) {
-    const message = err?.message || 'openai_request_failed';
-    console.error('Chat proxy failed', message);
-    return res.status(502).json({ error: 'openai_request_failed', message });
+    console.error('Lambda invoke failed', err);
+    return res.status(502).json({ error: 'lambda_invoke_failed', message: err.message });
   }
 });
 
