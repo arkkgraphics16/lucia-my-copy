@@ -10,6 +10,9 @@ export async function getIdToken() {
   return u ? await u.getIdToken() : null;
 }
 
+const LIVE_STRIPE_PUBLISHABLE_KEY =
+  'pk_live_51S1C5h2NCNcgXLO1oeZdRA6lXH6NHLi5wBDVVSoGwPCLxweZ2Xp8dZTee2QgrzPwwXwhalZAcY1xUeKNmKUxb5gq00tf0go3ih';
+
 function baseUrl() {
   const w = (import.meta.env.VITE_WORKER_API_URL || '').trim();
   const f = (import.meta.env.VITE_FUNCTIONS_URL || '').trim();
@@ -81,24 +84,48 @@ export function chatUrl() {
   return ensureChatUrl(normalizedBase, { preferPlainChat });
 }
 
-export function stripeEnabled() {
-  // We only enable buttons when owner provided at least a publishable key AND an API base
-  return Boolean((import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '').trim() && baseUrl());
+export function stripePublishableKey() {
+  return (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || LIVE_STRIPE_PUBLISHABLE_KEY).trim();
 }
 
-export async function createCheckoutSession({ priceId, uid, email }) {
-  const url = baseUrl() + '/stripe/create-checkout-session';
+export function stripeEnabled() {
+  return Boolean(stripePublishableKey());
+}
+
+function checkoutEndpoint() {
+  const base = (baseUrl() || '').replace(/\/+$/, '');
+  if (!base) {
+    return '/api/pay/checkout';
+  }
+  if (base.endsWith('/api')) {
+    return `${base}/pay/checkout`;
+  }
+  return `${base}/api/pay/checkout`;
+}
+
+export async function startCheckout(tier, { uid, email } = {}) {
+  if (!tier) {
+    throw new Error('tier is required');
+  }
   const token = await getIdToken();
-  const res = await fetch(url, {
+  const res = await fetch(checkoutEndpoint(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify({ priceId, uid, email })
+    body: JSON.stringify({ tier, uid, email })
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json(); // { url }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Checkout create failed');
+  }
+  const { url } = await res.json();
+  if (!url) {
+    throw new Error('Checkout create failed: missing redirect URL');
+  }
+  window.location.href = url;
+  return url;
 }
 
 export async function createPortalSession({ uid, email }) {

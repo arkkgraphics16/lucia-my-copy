@@ -6,12 +6,21 @@ import './styles/limit.css';
 import "./styles/typing.css";
 import AppShell from './components/AppShell';
 import ChatPage from './pages/ChatPage';
+import { CheckoutCancel, CheckoutSuccess } from './pages/CheckoutResult';
 import { auth, db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import FiscalGate from './components/FiscalGate';
 import Pricing from './pages/Pricing';
 
 export default function App() {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+  if (pathname.startsWith('/success')) {
+    return <CheckoutSuccess />;
+  }
+  if (pathname.startsWith('/cancel')) {
+    return <CheckoutCancel />;
+  }
+
   const [needsFiscal, setNeedsFiscal] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 

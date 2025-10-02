@@ -1,37 +1,29 @@
 import React, { useMemo } from 'react';
 import { useAuthToken } from '../hooks/useAuthToken';
-import { createCheckoutSession, stripeEnabled } from '../lib/api';
+import { startCheckout, stripeEnabled } from '../lib/api';
 import '../styles/pricing.css';
 
-const PLAN_IDS = {
-  BASIC: import.meta.env.VITE_STRIPE_PRICE_BASIC || 'prod_T94vRkqGFkaXWG',
-  MEDIUM: import.meta.env.VITE_STRIPE_PRICE_MEDIUM || 'prod_T94zVM2gXLzNx3',
-  INTENSIVE: import.meta.env.VITE_STRIPE_PRICE_INTENSIVE || 'prod_T950su3vUkpPAc',
-  TOTAL: import.meta.env.VITE_STRIPE_PRICE_TOTAL || 'price_1SCmrg2NCNcgXLO1dIBQ75vR',
-};
-
 const PLANS = [
-  { key: 'BASIC', name: 'Basic', priceId: PLAN_IDS.BASIC, price: '€20', note: '200 messages / mo' },
-  { key: 'MEDIUM', name: 'Medium', priceId: PLAN_IDS.MEDIUM, price: '€30', note: '400 messages / mo' },
-  { key: 'INTENSIVE', name: 'Intensive', priceId: PLAN_IDS.INTENSIVE, price: '€50', note: '2,000 messages / mo' },
-  { key: 'TOTAL', name: 'Total', priceId: PLAN_IDS.TOTAL, price: '€90', note: '6,000+ messages / mo' },
+  { key: 'BASIC', tier: 'basic', name: 'Basic', price: '€20', note: '200 messages / mo' },
+  { key: 'MEDIUM', tier: 'medium', name: 'Medium', price: '€30', note: '400 messages / mo' },
+  { key: 'INTENSIVE', tier: 'intensive', name: 'Intensive', price: '€50', note: '2,000 messages / mo' },
+  { key: 'TOTAL', tier: 'total', name: 'Total', price: '€90', note: '6,000+ messages / mo' },
 ];
 
 export default function Pricing({ onClose }) {
   const { user } = useAuthToken();
   const enabled = useMemo(() => stripeEnabled(), []);
 
-  async function buy(priceId) {
+  async function buy(plan) {
     if (!user?.uid) {
       window.dispatchEvent(new CustomEvent('lucia:show-login'));
       return;
     }
     if (!enabled) {
-      alert('Owner must plug Stripe keys and API URL to enable checkout.');
+      alert('Checkout is temporarily unavailable. Please try again later.');
       return;
     }
-    const { url } = await createCheckoutSession({ priceId, uid: user.uid, email: user.email || undefined });
-    window.location.href = url;
+    await startCheckout(plan.tier, { uid: user.uid, email: user.email || undefined });
   }
 
   return (
@@ -55,8 +47,8 @@ export default function Pricing({ onClose }) {
               <button
                 className="plan-cta"
                 disabled={!enabled}
-                title={enabled ? `Choose ${p.name}` : 'Checkout disabled until owner connects Stripe'}
-                onClick={() => buy(p.priceId)}
+                title={enabled ? `Choose ${p.name}` : 'Checkout currently unavailable'}
+                onClick={() => buy(p)}
               >
                 {enabled ? `Choose ${p.name}` : 'Checkout disabled'}
               </button>

@@ -7,7 +7,7 @@ const helmet = require('helmet');
 const securePrompts = require('./routes/securePrompts');
 const chat = require('./routes/chat');
 const files = require('./routes/files');
-const { router: stripeRouter, webhookHandler } = require('./routes/payments');
+const { router: stripeRouter, payRouter, webhookHandler } = require('./routes/payments');
 
 const app = express();
 app.use(helmet());
@@ -20,6 +20,7 @@ app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 app.use('/api/secure-prompts', securePrompts);
 app.use('/api/chat', chat);
 app.use('/api/files', files);
+app.use('/api/pay', payRouter);
 app.use('/stripe', stripeRouter);
 
 const port = process.env.PORT || 8080;

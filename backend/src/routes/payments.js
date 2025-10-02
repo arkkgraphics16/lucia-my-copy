@@ -1,15 +1,33 @@
 const router = require('express').Router();
 const {
-  createCheckoutSession,
+  createCheckoutSessionForTier,
   createPortalSession,
   verifyWebhookSignature,
   handleWebhookEvent,
 } = require('../lib/stripe');
 
+const payRouter = require('express').Router();
+
+payRouter.post('/checkout', async (req, res) => {
+  try {
+    const { tier, uid, email } = req.body || {};
+    const session = await createCheckoutSessionForTier({ tier, uid, email });
+    return res.json({ url: session.url, id: session.id });
+  } catch (err) {
+    const status = err?.statusCode || 500;
+    const message = err?.message || 'Failed to create checkout session';
+    console.error('Stripe checkout error', { message, code: err?.code });
+    return res.status(status).json({ error: err?.code || 'checkout_failed', message });
+  }
+});
+
 router.post('/create-checkout-session', async (req, res) => {
   try {
-    const { priceId, uid, email } = req.body || {};
-    const session = await createCheckoutSession({ priceId, uid, email });
+    const { tier, uid, email } = req.body || {};
+    if (!tier) {
+      return res.status(400).json({ error: 'invalid_tier', message: 'Tier is required' });
+    }
+    const session = await createCheckoutSessionForTier({ tier, uid, email });
     return res.json({ url: session.url, id: session.id });
   } catch (err) {
     const status = err?.statusCode || 500;
@@ -51,5 +69,6 @@ async function webhookHandler(req, res) {
 
 module.exports = {
   router,
+  payRouter,
   webhookHandler,
 };

@@ -9,9 +9,10 @@ Next:
 
 ## Stripe configuration
 
-- Provide `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as environment variables **or** expose them via AWS Secrets Manager using the ARN in `LUCIA_STRIPE_SECRET_ARN`.
-- Optional overrides: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_PORTAL_RETURN_URL`, `STRIPE_ALLOWED_PRICE_IDS`.
-- Frontend publishable key + price IDs go in `VITE_STRIPE_PUBLISHABLE_KEY` and `VITE_STRIPE_PRICE_*` env vars.
+- Provide `STRIPE_SECRET_KEY` and `WEBHOOK_SIGNING_SECRET` (or `STRIPE_WEBHOOK_SECRET`) as environment variables **or** expose them via AWS Secrets Manager using the ARN in `LUCIA_STRIPE_SECRET_ARN`.
+- Optional overrides: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_PORTAL_RETURN_URL`.
+- Live price IDs are injected via `PRICE_BASIC`, `PRICE_MEDIUM`, `PRICE_INTENSIVE`, and `PRICE_TOTAL` environment variables (or compatible `STRIPE_PRICE_*` fallbacks).
+- The frontend publishable key is read from `VITE_STRIPE_PUBLISHABLE_KEY` and defaults to the live key provided by Stripe.
 
 ## OpenAI proxy
 
