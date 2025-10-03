@@ -1,6 +1,9 @@
 // frontend/src/lib/api.js
+//
+// Minimal API helper for Chat + Stripe.
+// This version splits CHAT (Worker) from PAYMENTS (API/Functions) so
+// Stripe calls never target the Worker domain.
 
-// Minimal API helper for Stripe endpoints (placeholder-safe).
 // Works even without keys: UI will disable checkout if not connected.
 
 export async function getIdToken() {
@@ -10,14 +13,14 @@ export async function getIdToken() {
   return u ? await u.getIdToken() : null;
 }
 
+// Fallback publishable key (can be overridden via VITE_STRIPE_PUBLISHABLE_KEY)
 const LIVE_STRIPE_PUBLISHABLE_KEY =
   'pk_live_51S1C5h2NCNcgXLO1oeZdRA6lXH6NHLi5wBDVVSoGwPCLxweZ2Xp8dZTee2QgrzPwwXwhalZAcY1xUeKNmKUxb5gq00tf0go3ih';
 
-function baseUrl() {
-  const w = (import.meta.env.VITE_WORKER_API_URL || '').trim();
-  const f = (import.meta.env.VITE_FUNCTIONS_URL || '').trim();
-  const raw = w || f || '';
-  return raw ? raw.replace(/\/+$/, '') : '';
+// ---------- shared helpers ----------
+
+function trimTrailingSlashes(v) {
+  return (v || '').replace(/\/+$/, '');
 }
 
 function normalizePath(pathname) {
@@ -25,12 +28,10 @@ function normalizePath(pathname) {
   return pathname.replace(/\/+$/, '');
 }
 
-export function apiBaseUrl() {
-  return baseUrl();
-}
+// ---------- CHAT URL (prefers Worker) ----------
 
 function ensureChatUrl(base, { preferPlainChat } = {}) {
-  const normalized = (base || '').replace(/\/+$/, '');
+  const normalized = trimTrailingSlashes(base);
   if (!normalized) {
     return preferPlainChat ? '/chat' : '/api/chat';
   }
@@ -47,42 +48,57 @@ function ensureChatUrl(base, { preferPlainChat } = {}) {
 }
 
 export function chatUrl() {
-  const override = (import.meta.env.VITE_CHAT_URL || '').trim();
+  // explicit override wins
+  const override = trimTrailingSlashes(import.meta.env.VITE_CHAT_URL || '');
   if (override) return override;
 
-  const workerBase = (import.meta.env.VITE_WORKER_API_URL || '').trim();
-  const functionsBase = (import.meta.env.VITE_FUNCTIONS_URL || '').trim();
+  const workerBase = trimTrailingSlashes(import.meta.env.VITE_WORKER_API_URL || '');
+  const functionsBase = trimTrailingSlashes(import.meta.env.VITE_FUNCTIONS_URL || '');
 
-  const base = baseUrl();
+  // Choose a base: prefer Worker, then Functions, else same-origin
+  const base = workerBase || functionsBase || '';
   if (!base) return '/api/chat';
 
-  const normalizedBase = base.replace(/\/+$/, '');
-  if (!normalizedBase) return '/api/chat';
+  const preferPlainChat = Boolean(workerBase && workerBase !== functionsBase);
 
-  const normalizedWorkerBase = workerBase.replace(/\/+$/, '');
-  const normalizedFunctionsBase = functionsBase.replace(/\/+$/, '');
-  const preferPlainChat = Boolean(
-    normalizedWorkerBase &&
-      normalizedWorkerBase === normalizedBase &&
-      normalizedWorkerBase !== normalizedFunctionsBase
-  );
-
-  const tryParseAbsolute = () => {
-    try {
-      const url = new URL(normalizedBase);
-      const path = normalizePath(url.pathname);
-      const root = path ? `${url.origin}${path}` : url.origin;
-      return ensureChatUrl(root, { preferPlainChat });
-    } catch (_err) {
-      return null;
-    }
-  };
-
-  const absolute = tryParseAbsolute();
-  if (absolute) return absolute;
-
-  return ensureChatUrl(normalizedBase, { preferPlainChat });
+  // If absolute, preserve origin
+  try {
+    const url = new URL(base);
+    const path = normalizePath(url.pathname);
+    const root = path ? `${url.origin}${path}` : url.origin;
+    return ensureChatUrl(root, { preferPlainChat });
+  } catch {
+    // relative
+    return ensureChatUrl(base, { preferPlainChat });
+  }
 }
+
+// ---------- PAYMENTS URL (prefers API/Functions; NEVER Worker) ----------
+
+export function apiBaseUrl() {
+  // Dedicated API base for non-chat calls.
+  // Prefer VITE_API_URL, then VITE_FUNCTIONS_URL. Do NOT use Worker here.
+  const api = trimTrailingSlashes(import.meta.env.VITE_API_URL || '');
+  const funcs = trimTrailingSlashes(import.meta.env.VITE_FUNCTIONS_URL || '');
+  return api || funcs || '';
+}
+
+function checkoutEndpoint() {
+  const base = apiBaseUrl();
+  if (!base) return '/api/pay/checkout'; // same-origin fallback
+  if (base.endsWith('/api')) return `${base}/pay/checkout`;
+  return `${base}/api/pay/checkout`;
+}
+
+function portalEndpoint() {
+  // Keep existing server route shape if you're using /stripe/create-portal-session.
+  // If you have /api/pay/portal in your router, point to that instead.
+  const base = apiBaseUrl();
+  if (!base) return '/stripe/create-portal-session';
+  return `${base}/stripe/create-portal-session`;
+}
+
+// ---------- Stripe helpers ----------
 
 export function stripePublishableKey() {
   return (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || LIVE_STRIPE_PUBLISHABLE_KEY).trim();
@@ -90,17 +106,6 @@ export function stripePublishableKey() {
 
 export function stripeEnabled() {
   return Boolean(stripePublishableKey());
-}
-
-function checkoutEndpoint() {
-  const base = (baseUrl() || '').replace(/\/+$/, '');
-  if (!base) {
-    return '/api/pay/checkout';
-  }
-  if (base.endsWith('/api')) {
-    return `${base}/pay/checkout`;
-  }
-  return `${base}/api/pay/checkout`;
 }
 
 export async function startCheckout(tier, { uid, email } = {}) {
@@ -112,13 +117,14 @@ export async function startCheckout(tier, { uid, email } = {}) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ tier, uid, email })
+    body: JSON.stringify({ tier, uid, email }),
+    credentials: 'include',
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || 'Checkout create failed');
+    throw new Error(text || `Checkout create failed (${res.status})`);
   }
   const { url } = await res.json();
   if (!url) {
@@ -129,15 +135,15 @@ export async function startCheckout(tier, { uid, email } = {}) {
 }
 
 export async function createPortalSession({ uid, email }) {
-  const url = baseUrl() + '/stripe/create-portal-session';
   const token = await getIdToken();
-  const res = await fetch(url, {
+  const res = await fetch(portalEndpoint(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ uid, email })
+    body: JSON.stringify({ uid, email }),
+    credentials: 'include',
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json(); // { url }
