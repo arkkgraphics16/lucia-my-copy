@@ -216,6 +216,12 @@ a {
   position: relative;
 }
 
+.top-strip {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
 .thread {
   flex: 1;
   overflow-y: auto;
@@ -419,6 +425,11 @@ a {
   stroke: #e63946;
 }
 
+/* Scrim that sits above content when the sidebar is open on mobile */
+.sidebar-scrim {
+  display: none;
+}
+
 /* TABLET BREAKPOINT */
 @media (max-width: 1024px) {
   .layout {
@@ -484,14 +495,53 @@ a {
   }
 
   /* Mobile: Hide scrollbar completely on touch devices */
-  .thread::-webkit-scrollbar {
+  .thread::-webkit-scrollbar { 
     width: 0px;
     background: transparent;
   }
-  
+
   .thread {
     scrollbar-width: none; /* Firefox mobile */
     -ms-overflow-style: none; /* IE/Edge mobile */
     padding-right: 12px; /* Reset padding on mobile */
+  }
+  
+  .main {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .top-strip {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: 12px;
+  }
+
+  .status {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sidebar-scrim {
+    display: block;
+    position: fixed;
+    inset: var(--header-h) 0 0 0;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: rgba(5, 13, 22, 0.72);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 60;
+    cursor: pointer;
+  }
+
+  .sidebar-scrim.visible {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
