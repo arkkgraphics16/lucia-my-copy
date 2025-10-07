@@ -177,5 +177,22 @@ export const handler = async (event) => {
     return jsonResponse(statusCode, upstream);
   }
 
-  return jsonResponse(200, { ok: true, data: upstream.data });
+  const firstChoice = upstream.data?.choices?.[0];
+  const reply =
+    typeof firstChoice?.message?.content === "string"
+      ? firstChoice.message.content
+      : typeof firstChoice?.text === "string"
+      ? firstChoice.text
+      : null;
+
+  if (reply === null) {
+    return jsonResponse(502, {
+      ok: false,
+      code: "upstream_error",
+      reason: "Upstream response did not include a reply text.",
+      data: upstream.data,
+    });
+  }
+
+  return jsonResponse(200, { ok: true, reply, data: upstream.data });
 };
