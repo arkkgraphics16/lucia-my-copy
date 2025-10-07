@@ -148,3 +148,5 @@ export async function createPortalSession({ uid, email }) {
   if (!res.ok) throw new Error(await res.text());
   return res.json(); // { url }
 }
+
+export { fetchChatCompletion } from './aiClient';

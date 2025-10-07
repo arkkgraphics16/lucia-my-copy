@@ -5,7 +5,7 @@ import Composer from "../components/Composer"
 import CourtesyPopup from "../components/CourtesyPopup"
 import { onQuickPrompt } from "../lib/bus"
 import { useAuthToken } from "../hooks/useAuthToken"
-import { chatUrl, getIdToken } from "../lib/api"
+import { chatUrl, getIdToken, fetchChatCompletion } from "../lib/api"
 import {
   auth,
   db,
@@ -307,31 +307,20 @@ async function send() {
     const history = msgs.map(m => ({ role: m.role, content: m.content }))
     const token = await getIdToken()
 
-    const res = await fetch(CHAT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({
-        prompt: content,      // ✅ Current user message
-        history: history      // ✅ Previous conversation history
-      })
+    const result = await fetchChatCompletion({
+      url: CHAT_URL,
+      prompt: content,
+      history,
+      token
     })
-    
-    const bodyText = await res.text()
-    let data = {}
-    try { data = JSON.parse(bodyText) } catch {}
-    
-    // FIXED: Check for reply field instead of ok field
-    if (!res.ok || !data.reply) {
-      await addMessage(uid, cid, "assistant", `(error: ${res.status} ${data?.error || bodyText || "unknown"})`)
+
+    if (!result.ok) {
+      await addMessage(uid, cid, "system", `⚠️ ${result.reason}`)
       await bumpUpdatedAt(uid, cid)
-      setBusy(false)
       return
     }
-    
-    await addMessage(uid, cid, "assistant", data.reply || "(no reply)")
+
+    await addMessage(uid, cid, "assistant", result.content)
     await bumpUpdatedAt(uid, cid)
     if (!quota.isPro) await safeIncrementUsage(uid)
   } catch (err) {
