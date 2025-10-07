@@ -1,4 +1,3 @@
-// ESM + Admin modular + Functions v1 compat
 import * as functions from "firebase-functions/v1";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
@@ -21,9 +20,19 @@ const BRAND = {
   supportEmail: "lucia.decode@proton.me",
 };
 
-// ----- Renderers -----
+// ----- Utils -----
+function escapeHtml(str = "") {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+// ----- Renderers (UPDATED copy) -----
 function renderEmail({ displayName, hasVerificationLink, verifyUrl }) {
-  const greeting = displayName ? `Hi ${displayName},` : "Hi,";
+  const greeting = displayName ? `Hi ${escapeHtml(displayName)},` : "Hi,";
   const styles = `
     .container{max-width:560px;margin:0 auto;background:#0b1623;color:#eaf2ff;border-radius:16px;overflow:hidden;font-family:Inter,Segoe UI,Arial,sans-serif}
     .header{padding:28px 28px 0}
@@ -36,6 +45,7 @@ function renderEmail({ displayName, hasVerificationLink, verifyUrl }) {
     h2{margin:16px 0 6px}
     p{line-height:1.55}
   `;
+
   const confirmBlock = hasVerificationLink
     ? `
       <div class="card" style="text-align:center">
@@ -47,56 +57,73 @@ function renderEmail({ displayName, hasVerificationLink, verifyUrl }) {
       </div>`
     : `
       <div class="card">
-        <p>Your email is already verified. You’re all set 🎯</p>
+        <p>Your email is already verified, or you can request a new link from the sign-in page if needed.</p>
       </div>`;
+
+  const billingBlock = `
+    <div class="card">
+      <p><strong>Billing statement:</strong> If you upgrade mid-month, the new plan starts right away with the full number of messages. Your billing date switches to that day (e.g., upgrade on the 18th → renew on the 18th next month). The previous plan is treated as fully used—no proration or refunds—and your conversation history stays intact.</p>
+      <p>Full details: see our Terms of Service.</p>
+      <p class="muted">Example: Basic on the 1st → upgrade to Medium on the 18th; Medium starts on the 18th with full messages; next renewal is the 18th next month.</p>
+    </div>`;
+
   return `
   <div class="container">
     <div class="header">
-      <div class="brand">Lucía</div>
+      <div class="brand">${escapeHtml(BRAND.appName)}</div>
       <h2>Welcome — Your Conversations Are Private</h2>
     </div>
     <div style="padding:0 28px 12px">
       <p>${greeting}</p>
-      <p>Thank you for registering with Lucía.</p>
+      <p>Thank you for registering with ${escapeHtml(BRAND.appName)}.</p>
     </div>
     ${confirmBlock}
     <div style="padding:0 28px">
       <p><strong>Privacy you can trust:</strong> All your conversations are encrypted before leaving your device. We cannot read them. Only you control your content.</p>
-      <p>Lucía helps you find context and perspective through what we call <em>Digital Intuition</em>…</p>
-      <p>She also includes a random, statistical component…</p>
-      <p>It’s also important to know that the underlying AI never gives the same answer twice…</p>
-      <p>Most of the time she will be very accurate…</p>
-      <p>Think of her like GPS…</p>
+      <p>${escapeHtml(BRAND.appName)} helps you find context and perspective through what we call <em>Digital Intuition</em>. She sometimes infers a lot from very little — designed to see patterns you might not be consciously aware of.</p>
+      <p>There’s also a random, statistical component to her reasoning. Sometimes it feels magical when she nails it; other times she may add a little noise. The underlying AI never gives the same answer twice — that’s why we say: she’s context, not absolute truth.</p>
+      <p>Think of her like GPS: she guides you, but you remain the driver. You don’t drive off a cliff just because the map says the road continues, and you don’t enter a path too narrow for cars only because it looks shorter. You always keep your own judgment.</p>
       <div class="card">
-        <p><strong>Your rights:</strong> You can request deletion… <a href="mailto:${BRAND.supportEmail}">${BRAND.supportEmail}</a></p>
+        <p><strong>Your rights:</strong> You can request deletion of your email and account data at any time. Write to <a href="mailto:${BRAND.supportEmail}">${BRAND.supportEmail}</a> and we’ll remove it.</p>
       </div>
+      ${billingBlock}
     </div>
     <div style="padding:0 28px 8px"><p class="muted">Need help? Email <a href="mailto:${BRAND.supportEmail}">${BRAND.supportEmail}</a> or visit <a href="${BRAND.helpUrl}">${BRAND.helpUrl}</a>.</p></div>
-    <div class="footer"><p class="muted">Sent by Lucía. If this wasn’t you, you can ignore this message.</p></div>
+    <div class="footer"><p class="muted">Sent by ${escapeHtml(BRAND.appName)}. If this wasn’t you, you can ignore this message.</p></div>
   </div>
   <style>${styles}</style>`;
 }
 
 function renderText({ hasVerificationLink, verifyUrl }) {
   const lines = [];
-  lines.push("Subject: Welcome to Lucía – Your Conversations Are Private", "", "Hi:", "");
-  if (hasVerificationLink) { lines.push("Confirm your account:", verifyUrl, ""); }
-  else { lines.push("Your email is already verified. You’re all set.", ""); }
+  lines.push(
+    "Subject: Welcome to Lucía – Your Conversations Are Private",
+    "",
+    "Hi,",
+    ""
+  );
+  if (hasVerificationLink) {
+    lines.push("Confirm your account:", verifyUrl, "");
+  } else {
+    lines.push("Your email is already verified, or you can request a new link from the sign-in page.", "");
+  }
   lines.push(
     "Privacy you can trust: Your conversations are encrypted before leaving your device. We cannot read them. Only you control your content.",
     "",
-    "Lucía gives context through Digital Intuition…",
+    "Lucía gives context through Digital Intuition — she sometimes infers a lot from very little, with a random component that can feel magical at times (and off at others). The underlying AI never gives the same answer twice. She is context, not absolute truth.",
     "",
-    "Think of her like GPS…",
+    "Think of her like GPS: she guides you, but you remain the driver.",
     "",
-    `You can request deletion anytime by writing to ${BRAND.supportEmail}.`,
+    "If you upgrade mid-month, the new plan starts immediately with full messages. Your billing date changes to that day (e.g., upgrade on the 18th → renew on the 18th next month). No proration/refund for the previous plan. Threads are preserved.",
+    "",
+    `You can request deletion of your email and account data anytime by writing to ${BRAND.supportEmail}.`,
     "",
     `Need help? ${BRAND.supportEmail}`
   );
   return lines.join("\n");
 }
 
-// ----- Trigger -----
+// ----- Trigger (same name/signature) -----
 export const sendWelcomeOnSignup = functions
   .region(REGION)
   .auth.user()
@@ -108,6 +135,7 @@ export const sendWelcomeOnSignup = functions
         return;
       }
 
+      // Optional verification link (same API you used)
       let verifyUrl = null;
       if (!emailVerified) {
         const actionCodeSettings = { url: BRAND.continueUrl, handleCodeInApp: false };
