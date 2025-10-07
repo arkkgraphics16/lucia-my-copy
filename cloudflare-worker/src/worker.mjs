@@ -1,110 +1,100 @@
-// cloudflare-worker/src/worker.mjs
+// Minimal Cloudflare Worker proxy to Lambda
 
-// Small helpers
-function corsHeaders(origin = "*") {
+function cors(origin = "*") {
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,x-app-secret,stripe-signature",
     "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
   };
 }
 
 function json(body, origin = "*", status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(origin) },
+    headers: { "Content-Type": "application/json; charset=utf-8", ...cors(origin) },
   });
 }
 
-async function handleIp(request) {
-  // Try Cloudflare + common proxy headers
-  const ip =
-    request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    request.headers.get("x-client-ip") ||
-    "0.0.0.0";
-
-  return json({ ip });
-}
-
-// FIXED: Real chat handler with OpenAI integration
-async function handleChat(request, origin, env) {
-  try {
-    const body = await request.json();
-    const prompt = (body?.prompt ?? "").toString();
-    const history = Array.isArray(body?.history) ? body.history.slice(-20) : [];
-
-    if (!prompt.trim()) return json({ error: "prompt required" }, origin, 400);
-
-    // Dummy echo mode
-    if (env.DUMMY_MODE === "true") {
-      return json({ reply: `Echo: ${prompt}` }, origin, 200);
-    }
-
-    // OpenAI API call
-    const apiBase = env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions";
-    const res = await fetch(apiBase, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: env.OPENAI_MODEL || "gpt-4o-mini",
-        messages: [...history, { role: "user", content: prompt }],
-        temperature: 0.7
-      })
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      return json({ error: "upstream_error", status: res.status, body: text }, origin, 502);
-    }
-
-    const data = await res.json();
-    const reply = data?.choices?.[0]?.message?.content ?? "";
-    return json({ reply }, origin, 200);
-  } catch (e) {
-    return json({ error: String(e?.message || e) }, origin, 500);
-  }
-}
-
 export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+  async fetch(request, env) {
     const origin = env.ALLOW_ORIGIN || "*";
+    const url = new URL(request.url);
 
-    // CORS preflight
+    // Preflight
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      return new Response("", { status: 204, headers: cors(origin) });
     }
 
-    // --- Client IP endpoint ---
-    if (request.method === "GET" && url.pathname === "/ip") {
-      return handleIp(request);
-    }
-
-    // Health check
+    // Health
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
-      return json(
-        {
-          ok: true,
-          service: "lucia-secure worker",
-          mode: env.DUMMY_MODE === "true" ? "DUMMY" : "OPENAI",
-          endpoints: ["GET /ip", "POST /chat", "GET /health"],
-        },
-        origin,
-        200
-      );
+      return json({ ok: true, mode: "PROXY_TO_LAMBDA" }, origin, 200);
     }
 
-    // Chat with OpenAI integration
     if (request.method === "POST" && url.pathname === "/chat") {
-      return handleChat(request, origin, env);
+      const upstream = (env.OPENAI_PROXY_URL || "").trim();
+      if (!upstream) return json({ ok: false, error: "OPENAI_PROXY_URL not set" }, origin, 500);
+
+      // Read client body
+      const raw = await request.text();
+      let payload = {};
+      try { payload = raw ? JSON.parse(raw) : {}; } catch { return json({ error: "invalid_json" }, origin, 400); }
+
+      // Adapter: if client sent {prompt}, convert to Lambda's chat schema
+      // Otherwise pass through as-is
+      let bodyForLambda = payload;
+      if (typeof payload.prompt === "string" && payload.prompt.trim()) {
+        bodyForLambda = {
+          mode: "chat",
+          messages: [{ role: "user", content: payload.prompt }],
+          // pass through optional fields if you had them
+          ...("history" in payload ? { messages: [
+            ...(Array.isArray(payload.history) ? payload.history : []),
+            { role: "user", content: payload.prompt }
+          ] } : {}),
+        };
+      }
+
+      // Forward headers that might matter
+      const fwd = new Headers();
+      const ct = request.headers.get("Content-Type"); if (ct) fwd.set("Content-Type", ct);
+      const auth = request.headers.get("Authorization"); if (auth) fwd.set("Authorization", auth);
+      const sig = request.headers.get("stripe-signature"); if (sig) fwd.set("stripe-signature", sig);
+      const appSecret = request.headers.get("x-app-secret"); if (appSecret) fwd.set("x-app-secret", appSecret);
+
+      // Call Lambda Function URL (no extra path)
+      const resp = await fetch(upstream, {
+        method: "POST",
+        headers: fwd,
+        body: JSON.stringify(bodyForLambda),
+      });
+
+      // Debug view
+      if (url.searchParams.get("debug") === "1") {
+        const text = await resp.text();
+        return new Response(JSON.stringify({
+          ok: resp.ok,
+          status: resp.status,
+          from: "lambda",
+          upstream,
+          body: maybeJson(text),
+        }, null, 2), {
+          status: resp.ok ? 200 : resp.status,
+          headers: { "Content-Type": "application/json", ...cors(origin) }
+        });
+      }
+
+      // Normal proxy: stream through
+      const headers = new Headers(resp.headers);
+      for (const [k, v] of Object.entries(cors(origin))) headers.set(k, v);
+      return new Response(resp.body, { status: resp.status, headers });
     }
 
-    return new Response("Not found", { status: 404, headers: corsHeaders(origin) });
-  },
+    return new Response("Not found", { status: 404, headers: cors(origin) });
+  }
 };
+
+function maybeJson(text) {
+  try { return JSON.parse(text); } catch { return { raw: text }; }
+}

@@ -3,5 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.1.0",
-  "dependencies": {}
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.901.0"
+  }
 }
