@@ -1,11 +1,3 @@
-// frontend/src/lib/api.js
-//
-// Minimal API helper for Chat + Stripe.
-// This version splits CHAT (Worker) from PAYMENTS (API/Functions) so
-// Stripe calls never target the Worker domain.
-
-// Works even without keys: UI will disable checkout if not connected.
-
 export async function getIdToken() {
   // Lazy import to avoid circulars
   const { auth } = await import('../firebase');
@@ -73,29 +65,30 @@ export function chatUrl() {
   }
 }
 
-// ---------- PAYMENTS URL (prefers API/Functions; NEVER Worker) ----------
+// ---------- PAYMENTS URL (always AWS Lambda, never Worker) ----------
+
+// Direct Lambda base for production
+const LAMBDA_BASE =
+  import.meta.env.VITE_LAMBDA_URL ||
+  'https://bokhpf324arueloa6uzhfjpd2i0nsojz.lambda-url.eu-west-1.on.aws';
 
 export function apiBaseUrl() {
-  // Dedicated API base for non-chat calls.
-  // Prefer VITE_API_URL, then VITE_FUNCTIONS_URL. Do NOT use Worker here.
+  // Prefer explicit env override if present
   const api = trimTrailingSlashes(import.meta.env.VITE_API_URL || '');
   const funcs = trimTrailingSlashes(import.meta.env.VITE_FUNCTIONS_URL || '');
-  return api || funcs || '';
+  return api || funcs || LAMBDA_BASE;
 }
 
 function checkoutEndpoint() {
   const base = apiBaseUrl();
-  if (!base) return '/api/pay/checkout'; // same-origin fallback
   if (base.endsWith('/api')) return `${base}/pay/checkout`;
   return `${base}/api/pay/checkout`;
 }
 
 function portalEndpoint() {
-  // Keep existing server route shape if you're using /stripe/create-portal-session.
-  // If you have /api/pay/portal in your router, point to that instead.
   const base = apiBaseUrl();
-  if (!base) return '/stripe/create-portal-session';
-  return `${base}/stripe/create-portal-session`;
+  if (base.endsWith('/api')) return `${base}/pay/portal`;
+  return `${base}/api/pay/portal`;
 }
 
 // ---------- Stripe helpers ----------
@@ -109,27 +102,29 @@ export function stripeEnabled() {
 }
 
 export async function startCheckout(tier, { uid, email } = {}) {
-  if (!tier) {
-    throw new Error('tier is required');
-  }
+  if (!tier) throw new Error('tier is required');
+
   const token = await getIdToken();
-  const res = await fetch(checkoutEndpoint(), {
+  const endpoint = checkoutEndpoint();
+  console.log('Calling Stripe checkout:', endpoint);
+
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ tier, uid, email }),
-    credentials: 'include',
   });
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Checkout create failed (${res.status})`);
   }
+
   const { url } = await res.json();
-  if (!url) {
-    throw new Error('Checkout create failed: missing redirect URL');
-  }
+  if (!url) throw new Error('Checkout create failed: missing redirect URL');
+
   window.location.href = url;
   return url;
 }
@@ -143,7 +138,6 @@ export async function createPortalSession({ uid, email }) {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ uid, email }),
-    credentials: 'include',
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json(); // { url }
