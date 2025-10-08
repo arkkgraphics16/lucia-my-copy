@@ -4,10 +4,10 @@ import { startCheckout, stripeEnabled } from '../lib/api';
 import '../styles/pricing.css';
 
 const PLANS = [
-  { key: 'BASIC', tier: 'basic', name: 'Basic', price: '€20', note: '200 messages / mo' },
-  { key: 'MEDIUM', tier: 'medium', name: 'Medium', price: '€30', note: '400 messages / mo' },
-  { key: 'INTENSIVE', tier: 'intensive', name: 'Intensive', price: '€50', note: '2,000 messages / mo' },
-  { key: 'TOTAL', tier: 'total', name: 'Total', price: '€90', note: '6,000+ messages / mo' },
+  { key: 'BASIC',     tier: 'basic',     name: 'Basic',     price: '€20', note: '200 messages / mo',   priceId: 'price_XXXXXXXX_basic' },
+  { key: 'MEDIUM',    tier: 'medium',    name: 'Medium',    price: '€30', note: '400 messages / mo',   priceId: 'price_XXXXXXXX_medium' },
+  { key: 'INTENSIVE', tier: 'intensive', name: 'Intensive', price: '€50', note: '2,000 messages / mo', priceId: 'price_XXXXXXXX_intensive' },
+  { key: 'TOTAL',     tier: 'total',     name: 'Total',     price: '€90', note: '6,000+ messages / mo',priceId: 'price_1SCmrg2NCNcgXLO1dIBQ75vR' },
 ];
 
 export default function Pricing({ onClose }) {
@@ -23,7 +23,17 @@ export default function Pricing({ onClose }) {
       alert('Checkout is temporarily unavailable. Please try again later.');
       return;
     }
-    await startCheckout(plan.tier, { uid: user.uid, email: user.email || undefined });
+    if (!plan?.priceId) {
+      alert('This plan is not configured yet. Please contact support.');
+      return;
+    }
+
+    // ✅ Send Stripe price id (no Authorization header; handled in api.js)
+    await startCheckout({
+      price: plan.priceId,
+      quantity: 1,
+      metadata: { uid: user.uid, email: user.email || '' }
+    });
   }
 
   return (

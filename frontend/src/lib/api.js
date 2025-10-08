@@ -67,28 +67,29 @@ export function chatUrl() {
 
 // ---------- PAYMENTS URL (always AWS Lambda, never Worker) ----------
 
-// ✅ Use the working Lambda Function URL
+// ✅ Your working Lambda Function URL (kept as default if env not set)
 const LAMBDA_BASE =
-  import.meta.env.VITE_LAMBDA_URL ||
-  "https://tsqwdm45h22gxxvxoyflrpoj7m0eewmb.lambda-url.eu-west-1.on.aws";
+  trimTrailingSlashes(import.meta.env.VITE_LAMBDA_URL || "") ||
+  "https://lt2masjrrscsh556e35szjp4u40yaifr.lambda-url.eu-west-1.on.aws";
 
 export function apiBaseUrl() {
-  // Prefer explicit env override if present
+  // Prefer Lambda first to avoid old API Gateway taking precedence
+  if (LAMBDA_BASE) return LAMBDA_BASE;
   const api = trimTrailingSlashes(import.meta.env.VITE_API_URL || "");
   const funcs = trimTrailingSlashes(import.meta.env.VITE_FUNCTIONS_URL || "");
-  return api || funcs || LAMBDA_BASE;
+  return api || funcs || "";
 }
 
 function checkoutEndpoint() {
   const base = apiBaseUrl();
-  if (base.endsWith("/api")) return `${base}/pay/checkout`;
-  return `${base}/api/pay/checkout`;
+  if (!base) throw new Error("Payments base URL not configured.");
+  return base.endsWith("/api") ? `${base}/pay/checkout` : `${base}/api/pay/checkout`;
 }
 
 function portalEndpoint() {
   const base = apiBaseUrl();
-  if (base.endsWith("/api")) return `${base}/pay/portal`;
-  return `${base}/api/pay/portal`;
+  if (!base) throw new Error("Payments base URL not configured.");
+  return base.endsWith("/api") ? `${base}/pay/portal` : `${base}/api/pay/portal`;
 }
 
 // ---------- Stripe helpers ----------
@@ -98,38 +99,58 @@ export function stripePublishableKey() {
 }
 
 export function stripeEnabled() {
+  // keep this simple; publishable key presence enables Stripe on UI
   return Boolean(stripePublishableKey());
 }
 
-export async function startCheckout(tier, { uid, email } = {}) {
-  if (!tier) throw new Error("tier is required");
+/**
+ * Create a Stripe Checkout session via Lambda.
+ *
+ * Usage (new):
+ *   await startCheckout({ price: "price_XXXX", quantity: 1, metadata: { uid, email } })
+ *
+ * Legacy (still supported, throws if not a price id):
+ *   await startCheckout("price_XXXX", { uid, email })
+ */
+export async function startCheckout(arg, info = {}) {
+  let price, quantity = 1, metadata = {};
+  if (typeof arg === "string") {
+    price = arg;
+    if (info?.uid) metadata.uid = info.uid;
+    if (info?.email) metadata.email = info.email;
+  } else if (arg && typeof arg === "object") {
+    price = arg.price;
+    quantity = arg.quantity ?? 1;
+    metadata = arg.metadata ?? {};
+  }
 
-  const token = await getIdToken();
+  if (!price || !/^price_/.test(price)) {
+    throw new Error("startCheckout expects a Stripe price id (e.g. 'price_...').");
+  }
+
   const endpoint = checkoutEndpoint();
   console.log("Calling Stripe checkout:", endpoint);
 
+  // IMPORTANT: No Authorization header here → simpler CORS path
   const res = await fetch(endpoint, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ tier, uid, email }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ price, quantity, metadata })
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Checkout create failed (${res.status})`);
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Checkout failed (${res.status})`);
   }
 
-  const { url } = await res.json();
-  if (!url) throw new Error("Checkout create failed: missing redirect URL");
-
-  window.location.href = url;
-  return url;
+  const data = await res.json().catch(() => ({}));
+  if (!data?.url) throw new Error("Checkout failed: missing redirect URL");
+  window.location.href = data.url;
+  return data.url;
 }
 
 export async function createPortalSession({ uid, email }) {
+  // Portal can stay authenticated if your Lambda expects it
   const token = await getIdToken();
   const res = await fetch(portalEndpoint(), {
     method: "POST",
