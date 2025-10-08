@@ -1,23 +1,23 @@
 export async function getIdToken() {
   // Lazy import to avoid circulars
-  const { auth } = await import('../firebase');
+  const { auth } = await import("../firebase");
   const u = auth.currentUser;
   return u ? await u.getIdToken() : null;
 }
 
 // Fallback publishable key (can be overridden via VITE_STRIPE_PUBLISHABLE_KEY)
 const LIVE_STRIPE_PUBLISHABLE_KEY =
-  'pk_live_51S1C5h2NCNcgXLO1oeZdRA6lXH6NHLi5wBDVVSoGwPCLxweZ2Xp8dZTee2QgrzPwwXwhalZAcY1xUeKNmKUxb5gq00tf0go3ih';
+  "pk_live_51S1C5h2NCNcgXLO1oeZdRA6lXH6NHLi5wBDVVSoGwPCLxweZ2Xp8dZTee2QgrzPwwXwhalZAcY1xUeKNmKUxb5gq00tf0go3ih";
 
 // ---------- shared helpers ----------
 
 function trimTrailingSlashes(v) {
-  return (v || '').replace(/\/+$/, '');
+  return (v || "").replace(/\/+$/, "");
 }
 
 function normalizePath(pathname) {
-  if (!pathname) return '';
-  return pathname.replace(/\/+$/, '');
+  if (!pathname) return "";
+  return pathname.replace(/\/+$/, "");
 }
 
 // ---------- CHAT URL (prefers Worker) ----------
@@ -25,31 +25,31 @@ function normalizePath(pathname) {
 function ensureChatUrl(base, { preferPlainChat } = {}) {
   const normalized = trimTrailingSlashes(base);
   if (!normalized) {
-    return preferPlainChat ? '/chat' : '/api/chat';
+    return preferPlainChat ? "/chat" : "/api/chat";
   }
 
-  if (normalized.endsWith('/api/chat') || normalized.endsWith('/chat')) {
+  if (normalized.endsWith("/api/chat") || normalized.endsWith("/chat")) {
     return normalized;
   }
 
-  if (normalized.endsWith('/api')) {
+  if (normalized.endsWith("/api")) {
     return `${normalized}/chat`;
   }
 
-  return `${normalized}${preferPlainChat ? '/chat' : '/api/chat'}`;
+  return `${normalized}${preferPlainChat ? "/chat" : "/api/chat"}`;
 }
 
 export function chatUrl() {
   // explicit override wins
-  const override = trimTrailingSlashes(import.meta.env.VITE_CHAT_URL || '');
+  const override = trimTrailingSlashes(import.meta.env.VITE_CHAT_URL || "");
   if (override) return override;
 
-  const workerBase = trimTrailingSlashes(import.meta.env.VITE_WORKER_API_URL || '');
-  const functionsBase = trimTrailingSlashes(import.meta.env.VITE_FUNCTIONS_URL || '');
+  const workerBase = trimTrailingSlashes(import.meta.env.VITE_WORKER_API_URL || "");
+  const functionsBase = trimTrailingSlashes(import.meta.env.VITE_FUNCTIONS_URL || "");
 
   // Choose a base: prefer Worker, then Functions, else same-origin
-  const base = workerBase || functionsBase || '';
-  if (!base) return '/api/chat';
+  const base = workerBase || functionsBase || "";
+  if (!base) return "/api/chat";
 
   const preferPlainChat = Boolean(workerBase && workerBase !== functionsBase);
 
@@ -67,27 +67,27 @@ export function chatUrl() {
 
 // ---------- PAYMENTS URL (always AWS Lambda, never Worker) ----------
 
-// Direct Lambda base for production
+// ✅ Use the working Lambda Function URL
 const LAMBDA_BASE =
   import.meta.env.VITE_LAMBDA_URL ||
-  'https://bokhpf324arueloa6uzhfjpd2i0nsojz.lambda-url.eu-west-1.on.aws';
+  "https://tsqwdm45h22gxxvxoyflrpoj7m0eewmb.lambda-url.eu-west-1.on.aws";
 
 export function apiBaseUrl() {
   // Prefer explicit env override if present
-  const api = trimTrailingSlashes(import.meta.env.VITE_API_URL || '');
-  const funcs = trimTrailingSlashes(import.meta.env.VITE_FUNCTIONS_URL || '');
+  const api = trimTrailingSlashes(import.meta.env.VITE_API_URL || "");
+  const funcs = trimTrailingSlashes(import.meta.env.VITE_FUNCTIONS_URL || "");
   return api || funcs || LAMBDA_BASE;
 }
 
 function checkoutEndpoint() {
   const base = apiBaseUrl();
-  if (base.endsWith('/api')) return `${base}/pay/checkout`;
+  if (base.endsWith("/api")) return `${base}/pay/checkout`;
   return `${base}/api/pay/checkout`;
 }
 
 function portalEndpoint() {
   const base = apiBaseUrl();
-  if (base.endsWith('/api')) return `${base}/pay/portal`;
+  if (base.endsWith("/api")) return `${base}/pay/portal`;
   return `${base}/api/pay/portal`;
 }
 
@@ -102,16 +102,16 @@ export function stripeEnabled() {
 }
 
 export async function startCheckout(tier, { uid, email } = {}) {
-  if (!tier) throw new Error('tier is required');
+  if (!tier) throw new Error("tier is required");
 
   const token = await getIdToken();
   const endpoint = checkoutEndpoint();
-  console.log('Calling Stripe checkout:', endpoint);
+  console.log("Calling Stripe checkout:", endpoint);
 
   const res = await fetch(endpoint, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ tier, uid, email }),
@@ -123,7 +123,7 @@ export async function startCheckout(tier, { uid, email } = {}) {
   }
 
   const { url } = await res.json();
-  if (!url) throw new Error('Checkout create failed: missing redirect URL');
+  if (!url) throw new Error("Checkout create failed: missing redirect URL");
 
   window.location.href = url;
   return url;
@@ -132,9 +132,9 @@ export async function startCheckout(tier, { uid, email } = {}) {
 export async function createPortalSession({ uid, email }) {
   const token = await getIdToken();
   const res = await fetch(portalEndpoint(), {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ uid, email }),
@@ -143,4 +143,4 @@ export async function createPortalSession({ uid, email }) {
   return res.json(); // { url }
 }
 
-export { fetchChatCompletion } from './aiClient';
+export { fetchChatCompletion } from "./aiClient";
