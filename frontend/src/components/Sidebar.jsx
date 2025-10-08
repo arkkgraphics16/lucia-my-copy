@@ -38,7 +38,7 @@ function InlineModal({ title, value, setValue, onCancel, onSave, placeholder, ok
   )
 }
 
-export default function Sidebar({ open, onClose }) {
+export default function Sidebar({ open, onClose, id }) {
   const { user } = useAuthToken()
   const [menuOpen, setMenuOpen] = useState(false)
   const [convos, setConvos] = useState([])
@@ -200,7 +200,7 @@ export default function Sidebar({ open, onClose }) {
   )
 
   return (
-    <aside className={`sidebar ${open ? 'open' : ''}`}>
+    <aside id={id} className={`sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-content">
         <div className="sidebar-top">
           <h4>Folders</h4>
