@@ -13,6 +13,7 @@ import {
   getFirestore, serverTimestamp, doc, getDoc, setDoc, updateDoc,
   addDoc, collection, query, orderBy, onSnapshot, increment
 } from 'firebase/firestore';
+import { resolveUsageLimits, coerceNumber } from './lib/usageLimits';
 
 // --------------------------
 // Firebase init
@@ -209,25 +210,43 @@ async function incrementExchanges(uid) {
   if (!snap.exists()) return;
 
   const data = snap.data();
-  const used = data.exchanges_used || 0;
-  const courtesy = data.courtesy_used || false;
   const update = { updatedAt: serverTimestamp() };
+  const limits = resolveUsageLimits(data);
+  const used = coerceNumber(data.exchanges_used) ?? 0;
 
-  if (data.tier === 'pro') {
+  if (limits.unlimited) {
+    update.exchanges_used = increment(1);
+    await updateDoc(ref, update);
+    return;
+  }
+
+  const base = Number.isFinite(limits.baseAllowance) ? limits.baseAllowance : null;
+  const courtesyCap = Number.isFinite(limits.courtesyAllowance) ? limits.courtesyAllowance : null;
+  const hasCourtesy = Number.isFinite(base) && Number.isFinite(courtesyCap) && courtesyCap > base;
+  const courtesyUsed = hasCourtesy ? limits.courtesyUsed : false;
+
+  if (!Number.isFinite(base)) return;
+
+  if (!hasCourtesy) {
+    if (used >= base) return;
+    update.exchanges_used = increment(1);
+    await updateDoc(ref, update);
+    return;
+  }
+
+  if (!courtesyUsed) {
+    if (used < base) {
+      update.exchanges_used = increment(1);
+    } else if (used === base) {
+      update.exchanges_used = base + 1;
+      update.courtesy_used = true;
+    } else {
+      return;
+    }
+  } else if (used < courtesyCap) {
     update.exchanges_used = increment(1);
   } else {
-    if (used < 10) {
-      update.exchanges_used = increment(1);
-    } else if (used === 10 && !courtesy) {
-      // Set exact values instead of using increment for courtesy transition
-      update.exchanges_used = 11;
-      update.courtesy_used = true;
-    } else if (courtesy && used === 10) {
-      // Handle recovery case: courtesy was set but still at 10
-      update.exchanges_used = 11;
-    } else if (courtesy && used >= 11 && used < 12) {
-      update.exchanges_used = increment(1);
-    }
+    return;
   }
 
   await updateDoc(ref, update);

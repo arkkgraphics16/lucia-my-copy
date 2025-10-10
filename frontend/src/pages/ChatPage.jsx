@@ -33,6 +33,7 @@ import "../styles/courtesy-popup.css"
 
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
 import { doc, onSnapshot, getDoc, runTransaction } from "firebase/firestore"
+import { resolveUsageLimits, coerceBoolean, coerceNumber } from "../lib/usageLimits"
 
 const CHAT_URL = chatUrl()
 const DEFAULT_SYSTEM =
@@ -57,11 +58,7 @@ async function normalizeUserDoc(uid) {
     }
 
     if (typeof cur.courtesy_used !== "boolean") {
-      const raw = cur.courtesy_used
-      let coerced = false
-      if (typeof raw === "string") coerced = raw.toLowerCase() === "true"
-      else coerced = !!raw
-      next.courtesy_used = coerced
+      next.courtesy_used = coerceBoolean(cur.courtesy_used)
     }
 
     if (Object.keys(next).length > 0) tx.update(ref, next)
@@ -75,17 +72,22 @@ async function acceptCourtesy(uid) {
     const snap = await tx.get(ref)
     if (!snap.exists()) throw new Error("User doc missing")
     const cur = snap.data() || {}
-    const tier = typeof cur.tier === "string" ? cur.tier : "free"
-    const used = typeof cur.exchanges_used === "number" ? cur.exchanges_used : Number(cur.exchanges_used ?? 0)
-    const courtesy = typeof cur.courtesy_used === "boolean"
-      ? cur.courtesy_used
-      : (typeof cur.courtesy_used === "string" ? cur.courtesy_used.toLowerCase() === "true" : !!cur.courtesy_used)
+    const limits = resolveUsageLimits(cur)
+    const used = coerceNumber(cur.exchanges_used) ?? 0
+    const base = limits.baseAllowance
+    const courtesyCap = limits.courtesyAllowance
+    const courtesyUsed = limits.courtesyAllowance ? limits.courtesyUsed : false
 
-    if (tier === "free" && used === 10 && !courtesy) {
-      tx.update(ref, { exchanges_used: 11, courtesy_used: true })
-    } else {
+    if (!Number.isFinite(base) || !Number.isFinite(courtesyCap) || courtesyCap <= base) {
       throw new Error("Courtesy not available")
     }
+
+    if (!courtesyUsed && used === base) {
+      tx.update(ref, { exchanges_used: base + 1, courtesy_used: true })
+      return
+    }
+
+    throw new Error("Courtesy not available")
   })
 }
 
@@ -96,27 +98,46 @@ async function safeIncrementUsage(uid) {
     const snap = await tx.get(ref)
     if (!snap.exists()) throw new Error("User doc missing")
     const cur = snap.data() || {}
+    const limits = resolveUsageLimits(cur)
+    const used = coerceNumber(cur.exchanges_used) ?? 0
 
-    const tier = typeof cur.tier === "string" ? cur.tier : "free"
-    const used = typeof cur.exchanges_used === "number" ? cur.exchanges_used : Number(cur.exchanges_used ?? 0)
-    const courtesy = typeof cur.courtesy_used === "boolean"
-      ? cur.courtesy_used
-      : (typeof cur.courtesy_used === "string" ? cur.courtesy_used.toLowerCase() === "true" : !!cur.courtesy_used)
-
-    if (tier === "pro") {
+    if (limits.unlimited) {
       tx.update(ref, { exchanges_used: used + 1 })
       return
     }
 
-    if (used < 10) {
-      tx.update(ref, { exchanges_used: used + 1 })
-    } else if (used === 10 && !courtesy) {
-      tx.update(ref, { exchanges_used: 11, courtesy_used: true })
-    } else if (courtesy && used < 12) {
-      tx.update(ref, { exchanges_used: used + 1 })
-    } else {
-      throw new Error("Free limit reached")
+    const base = limits.baseAllowance
+    const courtesyCap = limits.courtesyAllowance
+    const hasCourtesy = Number.isFinite(courtesyCap) && Number.isFinite(base) && courtesyCap > base
+    const courtesyUsed = hasCourtesy ? limits.courtesyUsed : false
+
+    if (!Number.isFinite(base)) {
+      throw new Error("Usage limit misconfigured")
     }
+
+    if (!hasCourtesy) {
+      if (used >= base) {
+        throw new Error("Message allowance exhausted")
+      }
+      tx.update(ref, { exchanges_used: used + 1 })
+      return
+    }
+
+    if (!courtesyUsed) {
+      if (used < base) {
+        tx.update(ref, { exchanges_used: used + 1 })
+        return
+      }
+      if (used === base) {
+        tx.update(ref, { exchanges_used: base + 1, courtesy_used: true })
+        return
+      }
+    } else if (used < courtesyCap) {
+      tx.update(ref, { exchanges_used: used + 1 })
+      return
+    }
+
+    throw new Error("Free limit reached")
   })
 }
 
@@ -242,21 +263,64 @@ export default function ChatPage() {
 
   // Quota
   const quota = useMemo(() => {
-    if (!profile) return { isPro: false, used: 0, courtesy: false, total: 10, remaining: 0 }
-    const isPro = profile.tier === "pro"
-    const used = typeof profile.exchanges_used === "number" ? profile.exchanges_used : Number(profile.exchanges_used ?? 0)
-    const courtesy = typeof profile.courtesy_used === "boolean"
-      ? profile.courtesy_used
-      : (typeof profile.courtesy_used === "string" ? profile.courtesy_used.toLowerCase() === "true" : !!profile.courtesy_used)
-    const total = isPro ? Infinity : (courtesy ? 12 : 10)
-    const remaining = isPro ? Infinity : Math.max(0, total - used)
-    return { isPro, used, courtesy, total, remaining }
+    if (!profile) {
+      return {
+        unlimited: false,
+        used: 0,
+        base: 10,
+        courtesyCap: 12,
+        courtesyUsed: false,
+        courtesyAvailable: true,
+        total: 10,
+        remaining: 10,
+      }
+    }
+
+    const limits = resolveUsageLimits(profile)
+    const used = coerceNumber(profile.exchanges_used) ?? 0
+
+    if (limits.unlimited) {
+      return {
+        unlimited: true,
+        used,
+        base: Infinity,
+        courtesyCap: null,
+        courtesyUsed: false,
+        courtesyAvailable: false,
+        total: Infinity,
+        remaining: Infinity,
+      }
+    }
+
+    const base = Number.isFinite(limits.baseAllowance) ? limits.baseAllowance : 0
+    const courtesyCap = Number.isFinite(limits.courtesyAllowance) ? limits.courtesyAllowance : null
+    const courtesyAvailable = Boolean(courtesyCap && courtesyCap > base)
+    const courtesyUsed = courtesyAvailable ? limits.courtesyUsed : false
+    const total = courtesyAvailable && courtesyUsed ? courtesyCap : base
+    const remaining = Math.max(0, total - used)
+
+    return {
+      unlimited: false,
+      used,
+      base,
+      courtesyCap,
+      courtesyUsed,
+      courtesyAvailable,
+      total,
+      remaining,
+    }
   }, [profile])
 
   useEffect(() => {
-    if (!quota || quota.isPro) { setShowCourtesy(false); setCapHit(false); return }
-    if (quota.used === 10 && !quota.courtesy) { setShowCourtesy(true); setCapHit(false); return }
-    if (quota.courtesy && quota.used >= 12) { setShowCourtesy(false); setCapHit(true); return }
+    if (!quota || quota.unlimited) { setShowCourtesy(false); setCapHit(false); return }
+
+    if (quota.courtesyAvailable && !quota.courtesyUsed && quota.used === quota.base) {
+      setShowCourtesy(true); setCapHit(false); return
+    }
+
+    const cap = quota.courtesyAvailable && quota.courtesyUsed ? quota.courtesyCap : quota.base
+    if (Number.isFinite(cap) && quota.used >= cap) { setShowCourtesy(false); setCapHit(true); return }
+
     setCapHit(false)
   }, [quota])
 
@@ -296,10 +360,12 @@ async function send() {
     } else if (msgs.length === 0) {
       await setConversationTitle(uid, cid, content.slice(0, 48))
     }
-    if (!quota.isPro) {
-      if (quota.used === 10 && !quota.courtesy) { setShowCourtesy(true); setBusy(false); return }
-      const hardTotal = quota.courtesy ? 12 : 10
-      if (quota.used >= hardTotal) { setCapHit(true); setBusy(false); return }
+    if (!quota.unlimited) {
+      if (quota.courtesyAvailable && !quota.courtesyUsed && quota.used === quota.base) {
+        setShowCourtesy(true); setBusy(false); return
+      }
+      const cap = quota.courtesyAvailable && quota.courtesyUsed ? quota.courtesyCap : quota.base
+      if (Number.isFinite(cap) && quota.used >= cap) { setCapHit(true); setBusy(false); return }
     }
     await addMessage(uid, cid, "user", content)
     
@@ -322,7 +388,7 @@ async function send() {
 
     await addMessage(uid, cid, "assistant", result.content)
     await bumpUpdatedAt(uid, cid)
-    if (!quota.isPro) await safeIncrementUsage(uid)
+    if (!quota.unlimited) await safeIncrementUsage(uid)
   } catch (err) {
     if (String(err?.message || "").toLowerCase() !== "login required") console.error(err)
   } finally { setBusy(false) }
@@ -331,9 +397,11 @@ async function send() {
   function cancel() { setBusy(false) }
 
   const usageDisplay = useMemo(() => {
-    if (!profile || quota.isPro) return null
-    const total = quota.courtesy ? 12 : 10
-    const current = Math.min(quota.used, total)
+    if (!profile || quota.unlimited) return null
+    const cap = quota.courtesyAvailable && quota.courtesyUsed ? quota.courtesyCap : quota.base
+    if (!Number.isFinite(cap)) return null
+    const current = Math.min(quota.used, cap)
+    const total = cap
     return { current, total }
   }, [profile, quota])
 
