@@ -340,6 +340,10 @@ function determineUserTier({ status, mode }) {
     return "pro";
   }
 
+  if (["paid", "complete", "completed", "succeeded"].includes(normalizedStatus)) {
+    return "pro";
+  }
+
   if (!normalizedStatus && normalizedMode === "subscription") {
     return null;
   }
