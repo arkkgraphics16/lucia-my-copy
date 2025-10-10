@@ -1,21 +1,3 @@
-const TIER_REWRITES = {
-  standard: "basic",
-  standard_monthly: "basic",
-  standard_month: "basic",
-  standard_plan: "basic",
-  starter: "basic",
-  plus: "medium",
-  professional: "medium",
-  enterprise: "intensive",
-};
-
-const PLAN_ALLOWANCES = {
-  basic: 200,
-  medium: 400,
-  intensive: 2000,
-  total: 6000,
-};
-
 export function coerceNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   const parsed = Number(value);
@@ -30,13 +12,6 @@ export function coerceBoolean(value) {
     if (normalized === "false") return false;
   }
   return !!value;
-}
-
-export function canonicalizeTier(raw) {
-  if (typeof raw !== "string") return "";
-  const normalized = raw.trim().toLowerCase();
-  if (!normalized) return "";
-  return TIER_REWRITES[normalized] || normalized;
 }
 
 function extractCandidateAllowance(candidate) {
@@ -62,29 +37,18 @@ export function extractMessageAllowance(profile) {
 
 export function resolveTier(profile) {
   const rawCandidates = [
+    profile?.tier,
     profile?.billing?.planTier,
     profile?.billing?.tier,
     profile?.stripe?.planTier,
     profile?.stripe?.tier,
-    profile?.tier,
   ];
-
-  const normalized = [];
   for (const raw of rawCandidates) {
-    const value = canonicalizeTier(raw);
-    if (value) normalized.push(value);
+    if (typeof raw === "string" && raw.trim()) {
+      return raw.trim().toLowerCase();
+    }
   }
-
-  if (normalized.length === 0) return "";
-
-  const paidOrUpgraded = normalized.find((value) => value !== "free");
-  return paidOrUpgraded || normalized[0];
-}
-
-function allowanceForTier(tier) {
-  const canonical = canonicalizeTier(tier);
-  const value = PLAN_ALLOWANCES[canonical];
-  return Number.isFinite(value) ? value : null;
+  return "";
 }
 
 export function resolveUsageLimits(profile) {
