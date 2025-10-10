@@ -4,6 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { useAuthToken } from '../hooks/useAuthToken'
 import { db } from '../firebase'
 import "../styles/usage-indicator.css"
+import { coerceNumber, resolveUsageLimits } from "../lib/usageLimits"
 
 export default function StatusBar(){
   const { user } = useAuthToken()
@@ -25,18 +26,24 @@ export default function StatusBar(){
     const unsubscribe = onSnapshot(ref, (snap) => {
       if (!snap.exists()) return
       const data = snap.data()
-      if (data.tier === 'pro') {
+      const limits = resolveUsageLimits(data)
+
+      if (limits.unlimited) {
         setRemaining(null)
         return
       }
-      const usedRaw = data.exchanges_used
-      const courtesyRaw = data.courtesy_used
-      const used = typeof usedRaw === 'number' ? usedRaw : Number(usedRaw || 0)
-      const courtesy = typeof courtesyRaw === 'boolean'
-        ? courtesyRaw
-        : (typeof courtesyRaw === 'string' ? courtesyRaw.toLowerCase() === 'true' : !!courtesyRaw)
-      const max = courtesy ? 12 : 10
-      setRemaining(Math.max(0, max - (Number.isFinite(used) ? used : 0)))
+
+      const used = coerceNumber(data.exchanges_used) ?? 0
+      const limit = limits.courtesyAllowance && limits.courtesyUsed
+        ? limits.courtesyAllowance
+        : limits.baseAllowance
+
+      if (!Number.isFinite(limit)) {
+        setRemaining(null)
+        return
+      }
+
+      setRemaining(Math.max(0, limit - used))
     })
     return () => unsubscribe()
   }, [user?.uid])
