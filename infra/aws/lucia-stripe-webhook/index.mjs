@@ -1,5 +1,6 @@
 // lucia-stripe-webhook/index.mjs
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import { verifyWebhookSignature, handleWebhookEvent } from "../backend/src/lib/stripe.js";
 
 const SECRET_ARN = process.env.LUCIA_STRIPE_SECRET_ARN;
 const FALLBACK_ORIGIN = "https://www.luciadecode.com";
@@ -26,8 +27,7 @@ function buildCors(origin) {
     "Access-Control-Allow-Origin": origin || FALLBACK_ORIGIN,
     "Vary": "Origin",
     "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers":
-      "Content-Type,Authorization,stripe-signature,x-app-secret",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,stripe-signature,x-app-secret",
     "Access-Control-Max-Age": "86400",
     "X-Content-Type-Options": "nosniff",
     "Content-Type": "application/json; charset=utf-8"
@@ -63,13 +63,50 @@ export const handler = async (event) => {
   }
 
   try {
-    // TEMP placeholder: just log and echo back to verify CORS + Stripe connectivity
-    const body = event.body ? JSON.parse(event.body) : {};
-    console.log("Stripe webhook payload:", body);
+    // ===== REPLACE THE PLACEHOLDER CODE WITH THIS =====
+    
+    // Get Stripe signature from headers
+    const sig = event.headers['stripe-signature'] || 
+                event.headers['Stripe-Signature'];
+    
+    if (!sig) {
+      console.error("Missing Stripe signature header");
+      return { 
+        statusCode: 400, 
+        headers: CORS, 
+        body: JSON.stringify({ ok: false, error: "missing_signature" }) 
+      };
+    }
 
-    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) };
+    // IMPORTANT: Use raw body, not parsed JSON
+    const rawBody = event.body;
+    
+    // Verify webhook signature and construct event
+    const stripeEvent = await verifyWebhookSignature(rawBody, sig);
+    
+    console.log("Stripe webhook verified", { 
+      id: stripeEvent.id, 
+      type: stripeEvent.type 
+    });
+    
+    // Process the event (updates Firestore, grants access)
+    await handleWebhookEvent(stripeEvent);
+    
+    return { 
+      statusCode: 200, 
+      headers: CORS, 
+      body: JSON.stringify({ received: true }) 
+    };
+    
   } catch (err) {
-    console.error("Error in stripe webhook:", err);
-    return { statusCode: 500, headers: CORS, body: JSON.stringify({ ok: false, error: String(err.message || err) }) };
+    console.error("Webhook processing error:", err);
+    return { 
+      statusCode: 400, 
+      headers: CORS, 
+      body: JSON.stringify({ 
+        ok: false, 
+        error: err.message || String(err) 
+      }) 
+    };
   }
 };
