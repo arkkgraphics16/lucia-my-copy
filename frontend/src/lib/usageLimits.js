@@ -66,6 +66,17 @@ export function resolveUsageLimits(profile) {
     };
   }
 
+  const tierAllowance = allowanceForTier(tier);
+  if (Number.isFinite(tierAllowance) && tierAllowance > 0) {
+    return {
+      unlimited: false,
+      baseAllowance: tierAllowance,
+      courtesyAllowance: null,
+      courtesyUsed: false,
+      messageAllowance: tierAllowance,
+    };
+  }
+
   if (tier === "pro") {
     return {
       unlimited: true,
