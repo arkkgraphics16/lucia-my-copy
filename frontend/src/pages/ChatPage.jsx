@@ -33,7 +33,7 @@ import "../styles/courtesy-popup.css"
 
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth"
 import { doc, onSnapshot, getDoc, runTransaction } from "firebase/firestore"
-import { resolveUsageLimits, resolveTier, canonicalizeTier, coerceBoolean, coerceNumber } from "../lib/usageLimits"
+import { resolveUsageLimits, coerceBoolean, coerceNumber } from "../lib/usageLimits"
 
 const CHAT_URL = chatUrl()
 const DEFAULT_SYSTEM =
@@ -48,10 +48,7 @@ async function normalizeUserDoc(uid) {
     const cur = snap.data() || {}
     const next = {}
 
-    const canonicalTier = resolveTier(cur)
-    if (canonicalTier && canonicalTier !== canonicalizeTier(cur.tier)) {
-      next.tier = canonicalTier
-    } else if (typeof cur.tier !== "string") {
+    if (typeof cur.tier !== "string") {
       next.tier = String(cur.tier ?? "free")
     }
 
