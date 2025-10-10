@@ -18,6 +18,27 @@ const PLAN_ALLOWANCES = {
   total: 6000,
 };
 
+const TIER_ALIAS_MAP = new Map(
+  Object.entries({
+    standard: "basic",
+    "standard-monthly": "basic",
+    standard_monthly: "basic",
+    "standardmonthly": "basic",
+    "standard-20": "basic",
+    "standard20": "basic",
+  })
+);
+
+function canonicalizeTier(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (TIER_ALIAS_MAP.has(normalized)) return TIER_ALIAS_MAP.get(normalized);
+  if (normalized.startsWith("standard")) return "basic";
+  if (normalized === "basic-monthly" || normalized === "basic_monthly") return "basic";
+  return normalized;
+}
+
 function getUrls() {
   const successUrl = (process.env.STRIPE_SUCCESS_URL || DEFAULT_SUCCESS_URL).trim();
   const cancelUrl = (process.env.STRIPE_CANCEL_URL || DEFAULT_CANCEL_URL).trim();
@@ -271,16 +292,16 @@ function identifyTier({ metadata, priceId }) {
     meta.billing_tier,
   ];
   for (const value of tierKeys) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim().toLowerCase();
-    }
+    const canonical = canonicalizeTier(value);
+    if (canonical) return canonical;
   }
-  return resolveTierFromPrice(priceId);
+  const resolved = resolveTierFromPrice(priceId);
+  return canonicalizeTier(resolved);
 }
 
 function allowanceForTier(tier) {
-  const normalized = typeof tier === "string" ? tier.toLowerCase() : "";
-  const amount = PLAN_ALLOWANCES[normalized];
+  const normalized = canonicalizeTier(tier);
+  const amount = normalized ? PLAN_ALLOWANCES[normalized] : null;
   return Number.isFinite(amount) ? amount : null;
 }
 
@@ -394,7 +415,8 @@ async function applyPlanUpdate(db, {
   const ref = db.collection("users").doc(uid);
   const periodEndTs = toTimestamp(currentPeriodEnd);
   const serverTime = FieldValue.serverTimestamp();
-  const normalizedTier = typeof tier === "string" && tier ? tier.toLowerCase() : null;
+  const canonicalTier = canonicalizeTier(tier);
+  const normalizedTier = canonicalTier || null;
   const normalizedMode = typeof mode === "string" && mode ? mode.toLowerCase() : null;
   const normalizedStatus = typeof status === "string" && status ? status.toLowerCase() : null;
 
