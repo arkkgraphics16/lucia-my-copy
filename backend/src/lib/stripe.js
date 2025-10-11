@@ -7,6 +7,8 @@ const { getFirestore, FieldValue, Timestamp } = require("./firebaseAdmin");
 let stripeClientPromise = null;
 let stripeSecretsPromise = null;
 let tierPriceCache = null;
+const METADATA_KEY_LIMIT = 40;
+const METADATA_VALUE_LIMIT = 500;
 
 const DEFAULT_SUCCESS_URL = "https://www.luciadecode.com/success";
 const DEFAULT_CANCEL_URL = "https://www.luciadecode.com/cancel";
@@ -37,6 +39,35 @@ function canonicalizeTier(value) {
   if (normalized.startsWith("standard")) return "basic";
   if (normalized === "basic-monthly" || normalized === "basic_monthly") return "basic";
   return normalized;
+}
+
+function sanitizeStripeMetadata(input = {}) {
+  const out = {};
+  const entries = Object.entries(input || {});
+  for (const [rawKey, rawValue] of entries) {
+    if (rawKey == null) continue;
+    const key = String(rawKey).trim();
+    if (!key) continue;
+    if (rawValue == null) continue;
+
+    let value;
+    if (typeof rawValue === "string") {
+      value = rawValue;
+    } else if (typeof rawValue === "number" || typeof rawValue === "boolean") {
+      value = String(rawValue);
+    } else {
+      try {
+        value = JSON.stringify(rawValue);
+      } catch (_) {
+        value = String(rawValue);
+      }
+    }
+
+    const trimmedKey = key.slice(0, METADATA_KEY_LIMIT);
+    const trimmedValue = value.slice(0, METADATA_VALUE_LIMIT);
+    out[trimmedKey] = trimmedValue;
+  }
+  return out;
 }
 
 function getUrls() {
@@ -190,45 +221,145 @@ async function getOrCreateCustomer(stripe, { uid, email }) {
   return stripe.customers.create(params);
 }
 
-async function createCheckoutSessionForTier({ tier, uid, email }) {
-  const price = resolveTierPrice(tier);
-  if (!price) {
+async function createCheckoutSessionForTier({ tier, uid, email, price, quantity, metadata }) {
+  const stripe = await getStripeClient();
+  const { successUrl, cancelUrl } = getUrls();
+
+  const providedMetadata = metadata && typeof metadata === "object" ? { ...metadata } : {};
+
+  let normalizedTier = canonicalizeTier(tier) || null;
+  let normalizedUid = typeof uid === "string" && uid.trim() ? uid.trim() : null;
+  if (!normalizedUid) {
+    normalizedUid = extractUid(providedMetadata);
+  }
+
+  let requestedPriceId = null;
+  if (typeof price === "string" && price.trim().startsWith("price_")) {
+    requestedPriceId = price.trim();
+  }
+
+  let resolvedPriceId = requestedPriceId || null;
+  if (!resolvedPriceId && normalizedTier) {
+    resolvedPriceId = resolveTierPrice(normalizedTier);
+  }
+  if (!resolvedPriceId && tier) {
+    resolvedPriceId = resolveTierPrice(tier);
+  }
+
+  let fetchedPrice = null;
+  if (requestedPriceId) {
+    try {
+      fetchedPrice = await stripe.prices.retrieve(requestedPriceId, { expand: ["product"] });
+    } catch (err) {
+      const e = new Error("Invalid or unknown Stripe price id");
+      e.statusCode = 400;
+      e.code = "invalid_price";
+      throw e;
+    }
+    resolvedPriceId = fetchedPrice?.id || resolvedPriceId;
+  }
+
+  if (!resolvedPriceId) {
     const err = new Error("Invalid or missing price for tier");
     err.statusCode = 400;
     err.code = "invalid_tier";
     throw err;
   }
 
-  const stripe = await getStripeClient();
-  const { successUrl, cancelUrl } = getUrls();
-  const normalizedTier = String(tier || "").toLowerCase();
-  const isSubscription = normalizedTier !== "total";
+  const fetchedProductMetadata =
+    fetchedPrice &&
+    fetchedPrice.product &&
+    typeof fetchedPrice.product === "object" &&
+    fetchedPrice.product.metadata
+      ? fetchedPrice.product.metadata
+      : null;
+  const fetchedProductId =
+    fetchedPrice && fetchedPrice.product
+      ? typeof fetchedPrice.product === "string"
+        ? fetchedPrice.product
+        : fetchedPrice.product?.id || null
+      : null;
 
-  const metadata = { tier: normalizedTier };
-  if (uid) metadata.firebase_uid = uid;
+  if (!normalizedTier) {
+    normalizedTier =
+      identifyTier({
+        metadata: providedMetadata,
+        priceId: resolvedPriceId,
+        priceMetadata: fetchedPrice?.metadata,
+        productMetadata: fetchedProductMetadata,
+      }) || canonicalizeTier(resolveTierFromPrice(resolvedPriceId));
+  }
+
+  const mergedMetadata = { ...providedMetadata };
+  if (normalizedTier) {
+    mergedMetadata.tier = mergedMetadata.tier || normalizedTier;
+    mergedMetadata.planTier = mergedMetadata.planTier || normalizedTier;
+    mergedMetadata.plan_tier = mergedMetadata.plan_tier || normalizedTier;
+  }
+
+  if (normalizedUid) {
+    mergedMetadata.firebase_uid = mergedMetadata.firebase_uid || normalizedUid;
+    mergedMetadata.uid = mergedMetadata.uid || normalizedUid;
+    mergedMetadata.client_reference_id = mergedMetadata.client_reference_id || normalizedUid;
+  }
+
+  if (resolvedPriceId && !mergedMetadata.price_id) {
+    mergedMetadata.price_id = resolvedPriceId;
+  }
+
+  if (fetchedProductId && !mergedMetadata.product_id) {
+    mergedMetadata.product_id = fetchedProductId;
+  }
+
+  if (email && !mergedMetadata.email) {
+    mergedMetadata.email = email;
+  }
+
+  const sanitizedMetadata = sanitizeStripeMetadata(mergedMetadata);
+  const metadataForStripe = { ...sanitizedMetadata };
+  const finalUid =
+    (typeof sanitizedMetadata.firebase_uid === "string" && sanitizedMetadata.firebase_uid.trim())
+      ? sanitizedMetadata.firebase_uid.trim()
+      : normalizedUid;
+  if (finalUid && !metadataForStripe.firebase_uid) {
+    metadataForStripe.firebase_uid = finalUid;
+  }
+
+  const resolvedQuantity = (() => {
+    const n = Number(quantity);
+    if (Number.isFinite(n) && n > 0) {
+      return Math.min(Math.floor(n), 999);
+    }
+    return 1;
+  })();
+
+  const isSubscription = fetchedPrice
+    ? Boolean(fetchedPrice?.recurring)
+    : normalizedTier !== "total";
 
   const params = {
     mode: isSubscription ? "subscription" : "payment",
-    line_items: [{ price, quantity: 1 }],
+    line_items: [{ price: resolvedPriceId, quantity: resolvedQuantity }],
     success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: cancelUrl,
     allow_promotion_codes: true,
-    metadata,
+    metadata: metadataForStripe,
   };
 
-  if (uid) {
-    params.client_reference_id = uid;
+  if (finalUid) {
+    params.client_reference_id = finalUid;
   }
 
+  const nestedMetadata = { ...metadataForStripe };
   if (isSubscription) {
-    params.subscription_data = { metadata };
+    params.subscription_data = { metadata: nestedMetadata };
   } else {
-    params.payment_intent_data = { metadata };
+    params.payment_intent_data = { metadata: nestedMetadata };
   }
 
-  if (uid || email) {
+  if (finalUid || email) {
     try {
-      const customer = await getOrCreateCustomer(stripe, { uid, email });
+      const customer = await getOrCreateCustomer(stripe, { uid: finalUid, email });
       if (customer?.id) {
         params.customer = customer.id;
       }
@@ -281,7 +412,7 @@ async function verifyWebhookSignature(rawBody, signatureHeader) {
   return Stripe.webhooks.constructEvent(payload, signatureHeader, webhookSecret);
 }
 
-function identifyTier({ metadata, priceId }) {
+function identifyTier({ metadata, priceId, priceMetadata, productMetadata }) {
   const meta = metadata || {};
   const tierKeys = [
     meta.tier,
@@ -291,6 +422,24 @@ function identifyTier({ metadata, priceId }) {
     meta.subscription_tier,
     meta.billing_tier,
   ];
+  const priceMeta = priceMetadata || {};
+  tierKeys.push(
+    priceMeta.tier,
+    priceMeta.planTier,
+    priceMeta.plan_tier,
+    priceMeta.plan,
+    priceMeta.subscription_tier,
+    priceMeta.billing_tier,
+  );
+  const productMeta = productMetadata || {};
+  tierKeys.push(
+    productMeta.tier,
+    productMeta.planTier,
+    productMeta.plan_tier,
+    productMeta.plan,
+    productMeta.subscription_tier,
+    productMeta.billing_tier,
+  );
   for (const value of tierKeys) {
     const canonical = canonicalizeTier(value);
     if (canonical) return canonical;
@@ -484,7 +633,7 @@ async function handleCheckoutSessionEvent(db, event) {
   let expandedSession = session;
   try {
     expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
-      expand: ["line_items.data.price"],
+      expand: ["line_items.data.price", "line_items.data.price.product"],
     });
   } catch (err) {
     console.warn("Failed to retrieve checkout session details", { sessionId: session.id, error: err.message });
@@ -498,7 +647,7 @@ async function handleCheckoutSessionEvent(db, event) {
   if (expandedSession?.subscription) {
     try {
       subscription = await stripe.subscriptions.retrieve(expandedSession.subscription, {
-        expand: ["items.data.price"],
+        expand: ["items.data.price", "items.data.price.product"],
       });
       Object.assign(metadata, subscription?.metadata || {});
     } catch (err) {
@@ -520,8 +669,16 @@ async function handleCheckoutSessionEvent(db, event) {
   const subscriptionPrice = subscription?.items?.data?.[0]?.price || null;
 
   const priceId = subscriptionPrice?.id || firstPrice?.id || null;
-  const productId = subscriptionPrice?.product || firstPrice?.product || null;
-  const tier = identifyTier({ metadata, priceId });
+  const product = subscriptionPrice?.product || firstPrice?.product || null;
+  const productMetadata =
+    product && typeof product === "object" && product.metadata ? product.metadata : null;
+  const productId = typeof product === "string" ? product : product?.id || null;
+  const tier = identifyTier({
+    metadata,
+    priceId,
+    priceMetadata: subscriptionPrice?.metadata || firstPrice?.metadata,
+    productMetadata,
+  });
   const messageAllowance = allowanceForTier(tier);
 
   const mode = expandedSession?.mode || session?.mode || (subscription ? "subscription" : "payment");
@@ -556,7 +713,7 @@ async function handleInvoicePaymentSucceeded(db, event) {
   if (invoice?.subscription) {
     try {
       subscription = await stripe.subscriptions.retrieve(invoice.subscription, {
-        expand: ["items.data.price"],
+        expand: ["items.data.price", "items.data.price.product"],
       });
       Object.assign(metadata, subscription?.metadata || {});
     } catch (err) {
@@ -579,9 +736,17 @@ async function handleInvoicePaymentSucceeded(db, event) {
   const subscriptionPrice = subscription?.items?.data?.[0]?.price || null;
 
   const priceId = subscriptionPrice?.id || firstPrice?.id || null;
-  const productId = subscriptionPrice?.product || firstPrice?.product || null;
+  const product = subscriptionPrice?.product || firstPrice?.product || null;
+  const productMetadata =
+    product && typeof product === "object" && product.metadata ? product.metadata : null;
+  const productId = typeof product === "string" ? product : product?.id || null;
 
-  const tier = identifyTier({ metadata, priceId });
+  const tier = identifyTier({
+    metadata,
+    priceId,
+    priceMetadata: subscriptionPrice?.metadata || firstPrice?.metadata,
+    productMetadata,
+  });
   const messageAllowance = allowanceForTier(tier);
 
   const status = subscription?.status || invoice?.status || "paid";
@@ -650,7 +815,10 @@ async function handleSubscriptionUpdated(db, event) {
     if (found?.uid) uid = found.uid;
   }
 
-  const tier = identifyTier({ metadata, priceId: price?.id });
+  const product = price?.product || null;
+  const productMetadata = product && typeof product === "object" && product.metadata ? product.metadata : null;
+  const productId = typeof product === "string" ? product : product?.id || null;
+  const tier = identifyTier({ metadata, priceId: price?.id, priceMetadata: price?.metadata, productMetadata });
   const messageAllowance = allowanceForTier(tier);
 
   await applyPlanUpdate(db, {
@@ -658,7 +826,7 @@ async function handleSubscriptionUpdated(db, event) {
     customerId: subscription?.customer || null,
     subscriptionId: subscription?.id || null,
     priceId: price?.id || null,
-    productId: price?.product || null,
+    productId,
     tier,
     mode: "subscription",
     status: subscription?.status || null,
@@ -682,14 +850,17 @@ async function handleSubscriptionDeleted(db, event) {
 
   const item = subscription?.items?.data?.[0];
   const price = item?.price || null;
-  const tier = identifyTier({ metadata, priceId: price?.id });
+  const product = price?.product || null;
+  const productMetadata = product && typeof product === "object" && product.metadata ? product.metadata : null;
+  const productId = typeof product === "string" ? product : product?.id || null;
+  const tier = identifyTier({ metadata, priceId: price?.id, priceMetadata: price?.metadata, productMetadata });
 
   await applyPlanUpdate(db, {
     uid,
     customerId: subscription?.customer || null,
     subscriptionId: subscription?.id || null,
     priceId: price?.id || null,
-    productId: price?.product || null,
+    productId,
     tier,
     mode: "subscription",
     status: "canceled",
