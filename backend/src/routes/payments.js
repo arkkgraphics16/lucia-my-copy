@@ -1,4 +1,6 @@
-const router = require('express').Router();
+const express = require('express');
+
+const router = express.Router();
 const {
   createCheckoutSessionForTier,
   createPortalSession,
@@ -6,12 +8,45 @@ const {
   handleWebhookEvent,
 } = require('../lib/stripe');
 
-const payRouter = require('express').Router();
+const payRouter = express.Router();
+
+const TEXT_CONTENT_TYPES = [
+  'text/plain',
+  'text/plain;charset=utf-8',
+  'text/plain; charset=utf-8',
+];
+const textParser = express.text({ type: TEXT_CONTENT_TYPES, limit: '256kb' });
+const jsonParser = express.json({ limit: '1mb' });
+
+payRouter.use((req, res, next) => {
+  const contentType = (req.headers['content-type'] || '').toLowerCase();
+  if (TEXT_CONTENT_TYPES.some(type => contentType.startsWith(type))) {
+    return textParser(req, res, next);
+  }
+  return jsonParser(req, res, next);
+});
+
+function parseRequestBody(raw) {
+  if (raw == null) return {};
+  if (typeof raw === 'object') return raw;
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      const e = new Error('Request body must be valid JSON');
+      e.statusCode = 400;
+      e.code = 'invalid_json';
+      throw e;
+    }
+  }
+  return {};
+}
 
 payRouter.post('/checkout', async (req, res) => {
   try {
-    const { tier, uid, email } = req.body || {};
-    const session = await createCheckoutSessionForTier({ tier, uid, email });
+    const payload = parseRequestBody(req.body);
+    const { tier, uid, email, price, quantity, metadata } = payload || {};
+    const session = await createCheckoutSessionForTier({ tier, uid, email, price, quantity, metadata });
     return res.json({ url: session.url, id: session.id });
   } catch (err) {
     const status = err?.statusCode || 500;
@@ -23,11 +58,12 @@ payRouter.post('/checkout', async (req, res) => {
 
 router.post('/create-checkout-session', async (req, res) => {
   try {
-    const { tier, uid, email } = req.body || {};
-    if (!tier) {
-      return res.status(400).json({ error: 'invalid_tier', message: 'Tier is required' });
+    const payload = parseRequestBody(req.body);
+    const { tier, uid, email, price, quantity, metadata } = payload || {};
+    if (!tier && !price) {
+      return res.status(400).json({ error: 'invalid_tier', message: 'Tier or price is required' });
     }
-    const session = await createCheckoutSessionForTier({ tier, uid, email });
+    const session = await createCheckoutSessionForTier({ tier, uid, email, price, quantity, metadata });
     return res.json({ url: session.url, id: session.id });
   } catch (err) {
     const status = err?.statusCode || 500;
