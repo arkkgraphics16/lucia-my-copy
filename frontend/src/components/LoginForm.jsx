@@ -11,7 +11,6 @@ import {
 import {
   fetchSignInMethodsForEmail,
   sendPasswordResetEmail,
-  sendEmailVerification,
   sendSignInLinkToEmail
 } from "firebase/auth"
 import AddPassword from "./AddPassword"
@@ -124,7 +123,7 @@ export default function LoginForm({ onClose, onLogin }) {
 
       await registerWithEmail(trimmed, password)
       if (auth.currentUser && !auth.currentUser.emailVerified) {
-        try { await sendEmailVerification(auth.currentUser, actionCodeSettings); setHint("Verification sent. Please check your inbox.") } catch {}
+        setHint("Welcome email queued - check your inbox for the verification link.")
       }
       await ensureUser(auth.currentUser.uid)
       onLogin && onLogin()
