@@ -148,113 +148,61 @@ function PrivacyPolicy({ onBack }) {
           <section>
             <h2>1. Your Account</h2>
             <p>
-              To use LUCIA, you must register for an account using either Google Sign-In, email and password, or email link. You are responsible for maintaining
-              the confidentiality of your login credentials and for all activities that occur under your account. LUCIA is not liable for unauthorized use of your
-              account. You must ensure your email is valid and accessible, as deletion requests can only be processed if sent from the registered email.
+              To use LUCIA, you must register for an account using either Google Sign-In, email and password, or email link.
+              You are responsible for maintaining the confidentiality of your login credentials and for all activities that occur under your account.
+              LUCIA is not liable for unauthorized use of your account.
+              You must ensure your email is valid and accessible, as deletion requests can only be processed if sent from the registered email.
             </p>
           </section>
 
           <section>
             <h2>2. Third-Party Services</h2>
             <p>
-              LUCIA integrates with third-party providers, including OpenAI and Firebase. We are not responsible for the availability, security, or data practices
-              of third-party services. This should be read together with Section 4 (Content and Privacy).
+              LUCIA integrates with third-party services, including cloud infrastructure, authentication, analytics, and external AI processing providers.
+              These third-party services are used strictly to operate and deliver the functionality of the application.
+            </p>
+            <p>
+              LUCIA is not responsible for the availability, security, continuity, or data practices of such third-party services.
+              Users acknowledge that interactions processed through external AI processing providers are subject to the technical and legal conditions of those providers.
+            </p>
+            <p>
+              This section should be read together with Section 4 (Content and Privacy).
             </p>
           </section>
 
           <section>
             <h2>3. Signup Data</h2>
             <ul>
-              <li><strong>Email + Fiscal Residence</strong> = mandatory at signup.</li>
-              <li><strong>Full Name + Physical Address</strong> = fields must exist but remain optional at signup.</li>
-              <li>
-                When a user requests a formal invoice, then the system must force Full Name + Address before issuing it.
-              </li>
+              <li>– Email + Fiscal Residence = mandatory at signup.</li>
+              <li>– Full Name + Physical Address = fields must exist but remain optional at signup.</li>
+              <li>– When a user requests a formal invoice, then the system must force Full Name + Address before issuing it.</li>
             </ul>
+            <p>
+              During its initial launch phase, LUCIA may not be available to users located in the European Union.
+              This limitation applies exclusively to the launch phase and is temporary in nature.
+            </p>
+            <p>
+              Once LUCIA becomes available within the European Union, this limitation shall automatically cease to apply without requiring an update or replacement of this Privacy Policy.
+            </p>
           </section>
 
           <section>
             <h2>4. Content and Privacy</h2>
             <h3>Fair-Use Enforcement Metrics</h3>
             <p>
-              To enforce fair-use for the Total plan and protect availability, we process limited usage metadata (for example, message counts, token totals,
-              request rate, and plan tier). This does not involve reading your message content, which remains end-to-end encrypted as stated below.
+              To enforce fair-use across available subscription plans (including weekly and monthly plans) and protect service availability,
+              we process limited usage metadata (for example, message counts, token totals, request rate, and plan tier).
+              This process does not involve reading or analyzing the content of your messages.
             </p>
             <p>
-              Your messages are encrypted before leaving your device and stored in Firebase Firestore. Administrators cannot read your threads, prompts, past
-              conversations, or see deleted chats. While we guarantee privacy on our side, we do not control how OpenAI may process text to generate responses.
-              You have the right to request deletion of your email and account data at any time by contacting
-              {' '}<a href="mailto:lucia.decode@proton.me">lucia.decode@proton.me</a>.
+              Your messages are transmitted using industry-standard encryption and stored securely within our database infrastructure.
+              LUCIA administrators cannot read your threads, prompts, past conversations, or access deleted chats.
             </p>
-          </section>
-
-          <section>
-            <h2>5. Data Security</h2>
             <p>
-              We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration,
-              disclosure, or destruction. Your conversations are encrypted in transit and at rest. We use industry-standard security practices to protect your data.
+              While we guarantee privacy and data protection within our systems, we do not control how external AI processing providers may process text strictly for the purpose of generating responses.
             </p>
-          </section>
-
-          <section>
-            <h2>6. Data Retention</h2>
             <p>
-              We retain your personal information for as long as necessary to provide our services and comply with legal obligations. You can delete your
-              conversations and account at any time through your account settings.
-            </p>
-          </section>
-
-          <section>
-            <h2>7. Your Rights</h2>
-            <ul>
-              <li>Access your personal information</li>
-              <li>Correct inaccurate information</li>
-              <li>Delete your account and data</li>
-              <li>Export your data</li>
-              <li>Opt out of non-essential communications</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2>8. Cookies and Tracking</h2>
-            <p>We use cookies and similar technologies to:</p>
-            <ul>
-              <li>Maintain your login session</li>
-              <li>Remember your preferences</li>
-              <li>Analyze service usage</li>
-            </ul>
-            <p>You can control cookie settings through your browser preferences.</p>
-          </section>
-
-          <section>
-            <h2>9. International Users</h2>
-            <p>
-              If you are accessing our service from outside the United States, please be aware that your information may be transferred to, stored, and processed
-              in the United States where our servers are located.
-            </p>
-          </section>
-
-          <section>
-            <h2>10. Children’s Privacy</h2>
-            <p>
-              Our service is not directed to children under 13. We do not knowingly collect personal information from children under 13. If we become aware that
-              we have collected such information, we will take steps to delete it promptly.
-            </p>
-          </section>
-
-          <section>
-            <h2>11. Changes to this Policy</h2>
-            <p>
-              We may update this Privacy Policy from time to time. We will notify users of significant changes by email or through our service. Your continued use
-              of the service after changes constitutes acceptance of the updated policy.
-            </p>
-          </section>
-
-          <section>
-            <h2>12. Contact Us</h2>
-            <p>
-              If you have questions about this Privacy Policy or our data practices, please contact us at
-              {' '}<a href="mailto:lucia.decode@proton.me">lucia.decode@proton.me</a>.
+              You have the right to request deletion of your email and account data at any time by contacting <a href="mailto:lucia.decode@proton.me">lucia.decode@proton.me</a>.
             </p>
           </section>
         </div>
